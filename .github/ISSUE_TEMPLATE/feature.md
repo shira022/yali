@@ -39,7 +39,7 @@ assignees: ''
 
 ```yaml
 skills: impl-task, layer-guard
-spec-section: ""        # e.g., "1", "2", "3" — section of docs/spec_draft.md
+spec-section: ""        # e.g., "1", "2", "3" — section of docs/spec-draft.md
 test-required: "yes"    # yes | no
 side-effects-allowed: false   # must be false for Renderer
 ```

@@ -1,6 +1,6 @@
 ---
 name: spec-check
-description: Verifies that the current implementation is consistent with docs/spec_draft.md. Use before opening a PR or when reviewing existing code.
+description: Verifies that the current implementation is consistent with docs/spec-draft.md. Use before opening a PR or when reviewing existing code.
 ---
 
 # spec-check
@@ -14,7 +14,7 @@ Invoke this skill:
 
 ## Checklist
 
-Work through each section of [`docs/spec_draft.md`](../../../docs/spec_draft.md) and verify the implementation matches.
+Work through each section of [`docs/spec-draft.md`](../../../docs/spec-draft.md) and verify the implementation matches.
 
 ---
 
@@ -68,5 +68,5 @@ Work through each section of [`docs/spec_draft.md`](../../../docs/spec_draft.md)
 
 ## Notes
 
-- If the spec itself is ambiguous or incomplete for the area you are checking, open a discussion or update `docs/spec_draft.md` before proceeding.
+- If the spec itself is ambiguous or incomplete for the area you are checking, open a discussion or update `docs/spec-draft.md` before proceeding.
 - The spec is versioned at `v0.1`. Reference the version in your PR description if the check reveals a spec gap.

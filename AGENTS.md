@@ -16,7 +16,7 @@ yali run translate.yaml --input "Hello, world"
 - **Package manager**: npm
 - **Test framework**: Vitest
 - **LLM SDK**: openai (npm)
-- **Full spec**: [`docs/spec_draft.md`](docs/spec_draft.md)
+- **Full spec**: [`docs/spec-draft.md`](docs/spec-draft.md)
 
 ---
 
@@ -71,7 +71,7 @@ When assigned a GitHub Issue, follow this sequence:
 
 1. **Read the Issue** — identify the target layer (Parser / Renderer / Executor / CLI Layer).
 2. **Invoke `impl-task` skill** — follow its step-by-step procedure.
-3. **Reference `docs/spec_draft.md`** — find the relevant section before writing any code.
+3. **Reference `docs/spec-draft.md`** — find the relevant section before writing any code.
 4. **Create a branch** — `feature/issue-<number>-<short-description>`.
 5. **Implement** — single responsibility per layer; do not mix concerns.
 6. **Run `layer-guard` skill** — verify no architecture violations.
@@ -115,7 +115,7 @@ docs/issue-<number>-<short-description>
 
 ## References
 
-- **Full spec**: [`docs/spec_draft.md`](docs/spec_draft.md)
+- **Full spec**: [`docs/spec-draft.md`](docs/spec-draft.md)
 - **ADRs**: [`docs/adr/`](docs/adr/)
 - **Contributing guide**: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 - **Skills**: [`.agents/skills/`](.agents/skills/)

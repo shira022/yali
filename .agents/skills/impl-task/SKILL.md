@@ -21,9 +21,9 @@ Invoke this skill at the start of every new implementation task that originates 
   - **CLI Layer** — argument parsing, stdin detection, exit codes
 - Note the `spec-section:` field in the Issue template to find the relevant part of the spec.
 
-### Step 2 — Reference `docs/spec_draft.md`
+### Step 2 — Reference `docs/spec-draft.md`
 
-- Open [`docs/spec_draft.md`](../../../docs/spec_draft.md) and read the section referenced in the Issue.
+- Open [`docs/spec-draft.md`](../../../docs/spec-draft.md) and read the section referenced in the Issue.
 - Confirm your understanding of:
   - The expected input/output contract for the layer.
   - Any normalization or promotion rules (Parser).
@@ -91,7 +91,7 @@ Closes #3
 | Step | Action |
 |---|---|
 | 1 | Read Issue → identify target layer |
-| 2 | Read `docs/spec_draft.md` relevant section |
+| 2 | Read `docs/spec-draft.md` relevant section |
 | 3 | Create branch `feature/issue-<N>-<desc>` |
 | 4 | Implement with single responsibility |
 | 5 | Run `layer-guard` skill |

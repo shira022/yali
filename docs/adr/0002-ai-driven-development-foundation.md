@@ -58,6 +58,6 @@ Place architecture context, conventions, and instructions in a `docs/ai/` direct
 
 ## References
 
-- [`docs/spec_draft.md`](../spec_draft.md) — yali Foundation Spec v0.1
+- [`docs/spec-draft.md`](../spec-draft.md) — yali Foundation Spec v0.1
 - [`AGENTS.md`](../../AGENTS.md) — Universal AI agent guide for this project
 - [agentskills.io](https://agentskills.io) — SKILL.md open standard specification
