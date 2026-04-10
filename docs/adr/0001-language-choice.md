@@ -17,7 +17,7 @@ Key characteristics that inform the language choice:
 - **OSS distribution**: The tool should be easy to install and run without environment setup friction.
 - **UNIX philosophy**: Full `stdin`/`stdout`/pipe support is required.
 
-See [`docs/spec_draft.md`](../spec_draft.md) for the full specification.
+See [`docs/spec-draft.md`](../spec-draft.md) for the full specification.
 
 ---
 
@@ -102,6 +102,6 @@ See [`docs/spec_draft.md`](../spec_draft.md) for the full specification.
 
 ## References
 
-- [`docs/spec_draft.md`](../spec_draft.md) — yali Foundation Spec v0.1
+- [`docs/spec-draft.md`](../spec-draft.md) — yali Foundation Spec v0.1
 - [OpenAI Node.js SDK](https://github.com/openai/openai-node)
 - [OpenAI Agents SDK for TypeScript](https://github.com/openai/openai-agents-js)
