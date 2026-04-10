@@ -90,7 +90,7 @@ docs: add ADR for language choice
 - **Renderer**: Resolves variables and expands templates — pure function, no side effects.
 - **Executor**: Calls the LLM API, handles streaming, and writes output.
 
-See [`docs/spec_draft.md`](docs/spec_draft.md) for the full specification.
+See [`docs/spec-draft.md`](docs/spec-draft.md) for the full specification.
 
 ---
 
