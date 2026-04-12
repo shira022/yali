@@ -1,0 +1,76 @@
+name: Merge Gate
+
+on:
+  pull_request:
+    types: [labeled, unlabeled, opened, synchronize]
+
+jobs:
+  check-labels:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+
+    steps:
+      - name: Checkout (for config file)
+        uses: actions/checkout@v4
+
+      - name: Check required labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Read required LGTM count from config, defaulting to 1
+          CONFIG_FILE=".github/merge-gate-config.yml"
+          if [ -f "$CONFIG_FILE" ]; then
+            REQUIRED_LGTM=$(grep -E '^required_lgtm_count:' "$CONFIG_FILE" | awk '{print $2}' | tr -d '[:space:]') || true
+          fi
+          REQUIRED_LGTM="${REQUIRED_LGTM:-1}"
+          echo "Required LGTM count: $REQUIRED_LGTM"
+
+          # Fetch current PR labels
+          LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '[.labels[].name]')
+          echo "Current labels: $LABELS"
+
+          has_label() {
+            echo "$LABELS" | jq -e --arg l "$1" 'index($l) != null' > /dev/null 2>&1
+          }
+
+          MISSING=()
+          PASS=true
+
+          # Check for 'approved' label (added by AI evaluator)
+          if has_label "approved"; then
+            echo "✅ 'approved' label present (AI review passed)"
+          else
+            echo "❌ 'approved' label missing (AI review not yet complete)"
+            MISSING+=("approved label (AI review)")
+            PASS=false
+          fi
+
+          # Check for sufficient 'LGTM' labels (added manually by maintainers)
+          LGTM_COUNT=$(echo "$LABELS" | jq '[.[] | select(. == "LGTM")] | length')
+          if [ "$LGTM_COUNT" -ge "$REQUIRED_LGTM" ]; then
+            echo "✅ LGTM label present ($LGTM_COUNT/$REQUIRED_LGTM) (human review passed)"
+          else
+            echo "❌ LGTM label missing ($LGTM_COUNT/$REQUIRED_LGTM) (awaiting human review)"
+            MISSING+=("LGTM label (human review, ${LGTM_COUNT}/${REQUIRED_LGTM} present)")
+            PASS=false
+          fi
+
+          if [ "$PASS" = "true" ]; then
+            echo ""
+            echo "🟢 Merge gate passed — PR has all required labels."
+            exit 0
+          else
+            echo ""
+            echo "🔴 Merge gate blocked. Waiting for:"
+            for item in "${MISSING[@]}"; do
+              echo "   • $item"
+            done
+            echo ""
+            echo "Both 'approved' (AI) and 'LGTM' (human maintainer) labels are required to merge."
+            exit 1
+          fi

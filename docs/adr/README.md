@@ -12,6 +12,8 @@ The format follows [MADR (Markdown Architectural Decision Records)](https://adr.
 |---|---|---|---|
 | [0001](0001-language-choice.md) | Language Choice for yali | Accepted | 2026-04-09 |
 | [0002](0002-ai-driven-development-foundation.md) | Use AGENTS.md and SKILL.md as the Universal AI-Driven Development Foundation | Accepted | 2026-04-09 |
+| [0003](0003-npm-distribution-strategy.md) | npm Distribution Strategy for yali | Accepted | 2026-04-10 |
+| [0004](0004-multi-agent-pr-review.md) | Multi-Agent PR Review System | Accepted | 2026-04-12 |
 
 ---
 
