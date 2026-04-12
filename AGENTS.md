@@ -62,6 +62,62 @@ Skills live in `.agents/skills/` and follow the [agentskills.io](https://agentsk
 | `impl-task` | [`.agents/skills/impl-task/SKILL.md`](.agents/skills/impl-task/SKILL.md) | When starting any new implementation task from a GitHub Issue. |
 | `spec-check` | [`.agents/skills/spec-check/SKILL.md`](.agents/skills/spec-check/SKILL.md) | Before opening a PR or when reviewing existing code against the spec. |
 | `write-test` | [`.agents/skills/write-test/SKILL.md`](.agents/skills/write-test/SKILL.md) | When adding or reviewing tests for any layer. |
+| `review-architecture` | [`.agents/skills/review-architecture/SKILL.md`](.agents/skills/review-architecture/SKILL.md) | When acting as Architecture Reviewer for a PR |
+| `review-spec` | [`.agents/skills/review-spec/SKILL.md`](.agents/skills/review-spec/SKILL.md) | When acting as Spec Reviewer for a PR |
+| `review-tests` | [`.agents/skills/review-tests/SKILL.md`](.agents/skills/review-tests/SKILL.md) | When acting as Test Reviewer for a PR |
+| `orchestrate-review` | [`.agents/skills/orchestrate-review/SKILL.md`](.agents/skills/orchestrate-review/SKILL.md) | When acting as Orchestrator to coordinate PR review |
+| `evaluate-review` | [`.agents/skills/evaluate-review/SKILL.md`](.agents/skills/evaluate-review/SKILL.md) | When acting as Evaluator to synthesize reviews and manage fix loop |
+
+---
+
+## PR Review Roles
+
+When a PR is created, the multi-agent review system assigns specific roles. Any agent can take any role using the corresponding skill.
+
+### Role Table
+
+| Role | Trigger | Skill | Responsibility |
+|---|---|---|---|
+| **Orchestrator** | `review-needed` label on PR | `orchestrate-review` | Monitors PRs, spawns reviewer sub-agents, invokes Evaluator, manages the fix loop |
+| **Architecture Reviewer** | Spawned by Orchestrator | `review-architecture` | Reviews PR diff for 3-layer boundary violations |
+| **Spec Reviewer** | Spawned by Orchestrator | `review-spec` | Reviews PR diff for spec-draft.md compliance |
+| **Test Reviewer** | Spawned by Orchestrator | `review-tests` | Reviews PR diff for test quality and coverage |
+| **Evaluator** | Invoked by Orchestrator after all reviews | `evaluate-review` | Synthesizes reviews, creates Fix-task, tracks resolution, adds approved/needs-fix labels |
+
+### Review Flow
+
+```
+PR created/updated
+      ↓
+GitHub Actions → adds review-needed label + posts structured comment
+      ↓
+Orchestrator detects review-needed label (monitoring loop)
+      ↓
+Spawns 3 reviewer sub-agents in parallel:
+  ├── Architecture Reviewer → gh pr review comment
+  ├── Spec Reviewer → gh pr review comment  
+  └── Test Reviewer → gh pr review comment
+      ↓
+Evaluator synthesizes all reviews
+      ↓
+Issues found?
+  YES → adds needs-fix label + posts Fix-task comment → developer fixes → push → loop (max 3x)
+  NO  → adds approved label → awaits human LGTM → merge
+```
+
+### Merge Gate
+
+Both labels are required before merging:
+- `approved` — added automatically by Evaluator when all issues resolved
+- `LGTM` — added manually by a human maintainer
+
+### Becoming the Orchestrator
+
+Any contributor can serve as the Orchestrator for a review cycle:
+
+1. Start your AI agent (Claude Code, Copilot CLI, Cursor, etc.)
+2. Tell it: *"Read `.agents/skills/orchestrate-review/SKILL.md` and start the monitoring loop"*
+3. The agent will poll for `review-needed` labeled PRs and manage the review process
 
 ---
 
