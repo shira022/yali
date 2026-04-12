@@ -1,0 +1,101 @@
+name: PR Review Trigger
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize]
+
+jobs:
+  trigger-review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Manage labels and trigger review
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+
+          # Fetch current labels on the PR
+          LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '[.labels[].name]')
+          echo "Current labels: $LABELS"
+
+          has_label() {
+            echo "$LABELS" | jq -e --arg l "$1" 'index($l) != null' > /dev/null 2>&1
+          }
+
+          # If 'approved' label exists and this is a synchronize event,
+          # remove 'approved' so the new push re-triggers the full review loop.
+          if [ "${{ github.event.action }}" = "synchronize" ] && has_label "approved"; then
+            echo "Removing 'approved' label (new push after approval)"
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "approved" || true
+          fi
+
+          # If 'needs-fix' label exists, remove it so the review loop restarts.
+          if has_label "needs-fix"; then
+            echo "Removing 'needs-fix' label (re-review after fix)"
+            gh pr edit "$PR_NUMBER" --repo "$REPO" --remove-label "needs-fix" || true
+          fi
+
+          # Refresh label list after mutations
+          LABELS=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json labels --jq '[.labels[].name]')
+
+          # Only add 'review-needed' if 'approved' is no longer present
+          if has_label "approved"; then
+            echo "PR already has 'approved' label and no new push detected — skipping review trigger."
+            exit 0
+          fi
+
+          # Ensure 'review-needed' label exists in the repo (create if missing)
+          gh label create "review-needed" --repo "$REPO" --color "0075ca" --description "Queued for multi-agent AI review" 2>/dev/null || true
+
+          gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label "review-needed"
+          echo "Added 'review-needed' label to PR #$PR_NUMBER"
+
+      - name: Post review request comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.head_ref }}
+          ACTION: ${{ github.event.action }}
+        run: |
+          set -euo pipefail
+
+          if [ "$ACTION" = "synchronize" ]; then
+            TRIGGER_NOTE="🔄 New commits were pushed — restarting the multi-agent review loop."
+          else
+            TRIGGER_NOTE="🆕 PR opened — starting the multi-agent review pipeline."
+          fi
+
+          COMMENT_BODY="## 🤖 Multi-Agent PR Review Triggered
+
+          ${TRIGGER_NOTE}
+
+          **PR:** #${PR_NUMBER} | **Branch:** \`${BRANCH}\`
+
+          The orchestrator will process this PR through the following review pipeline:
+
+          | # | Role                | Skill               |
+          |---|---------------------|---------------------|
+          | 1 | Architecture Review | \`review-architecture\` |
+          | 2 | Spec Review         | \`review-spec\`         |
+          | 3 | Test Review         | \`review-tests\`        |
+
+          ### Instructions for Orchestrator
+
+          1. Read and follow the \`orchestrate-review\` skill.
+          2. Process PR #${PR_NUMBER} through each review agent in sequence.
+          3. After all reviews, invoke the \`evaluate-review\` skill to determine the outcome.
+          4. Apply the appropriate label (\`approved\` or \`needs-fix\`) based on the evaluation.
+
+          > Labels drive the state machine: \`review-needed\` → \`review-in-progress\` → \`review-count-N\` → \`approved\` / \`needs-fix\`
+          > Merge requires both \`approved\` (AI) **and** \`LGTM\` (human maintainer) labels."
+
+          gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$COMMENT_BODY"
+          echo "Posted review request comment to PR #$PR_NUMBER"

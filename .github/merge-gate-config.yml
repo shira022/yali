@@ -1,0 +1,7 @@
+# Merge gate configuration for yali
+# Controls the number of human approvals required before merging
+
+required_lgtm_count: 1  # Number of LGTM labels required (each maintainer adds one)
+
+# AI review label: 'approved' (added automatically by evaluate-review skill)
+# Human review label: 'LGTM' (added manually by human maintainers)
