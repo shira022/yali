@@ -93,6 +93,31 @@ describe('ValidatedCommandSchema — extended config (multi-step)', () => {
     });
     expect(result.steps[0].depends_on).toEqual([]);
   });
+
+  it('parses optional name and version fields', () => {
+    const result = ValidatedCommandSchema.parse({
+      name: 'my-cmd',
+      version: '2.0',
+      prompt: 'Hello',
+      model: 'gpt-4o',
+    });
+    expect(result.name).toBe('my-cmd');
+    expect(result.version).toBe('2.0');
+  });
+
+  it('parses tools field correctly', () => {
+    const result = ValidatedCommandSchema.parse({
+      prompt: 'Hello',
+      model: 'gpt-4o',
+      tools: [{ type: 'mcp', server: 'filesystem', allowed_actions: ['read_file'] }],
+    });
+    expect(result.tools).toHaveLength(1);
+    expect(result.tools![0]).toEqual({
+      type: 'mcp',
+      server: 'filesystem',
+      allowed_actions: ['read_file'],
+    });
+  });
 });
 
 describe('ValidatedCommandSchema — validation errors', () => {
@@ -146,6 +171,11 @@ describe('parseCommand — file I/O', () => {
     try { unlinkSync(tmpFile); } catch { /* ignore */ }
   });
 
+  it('throws ParseError when YAML file is empty', () => {
+    writeFileSync(tmpFile, '');
+    expect(() => parseCommand(tmpFile)).toThrowError(ParseError);
+  });
+
   it('parses a minimal YAML file correctly', () => {
     writeFileSync(tmpFile, 'prompt: "Hello {{input}}"\nmodel: gpt-4o\n');
     const result = parseCommand(tmpFile);
@@ -168,6 +198,7 @@ describe('parseCommand — file I/O', () => {
   });
 
   it('ParseError has correct name property', () => {
+    expect.assertions(2);
     try {
       parseCommand('/nonexistent/path/cmd.yaml');
     } catch (e) {
