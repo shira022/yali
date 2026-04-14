@@ -222,6 +222,46 @@ describe('execute()', () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Markdown format (passthrough)
+  // ---------------------------------------------------------------------------
+  it('passes markdown output through unchanged', async () => {
+    const markdownContent = '# Heading\n\n- item 1\n- item 2\n';
+    mockNonStreaming(markdownContent);
+
+    const { execute } = await import('./index.js');
+    const command = makeCommand({
+      output_spec: { format: 'markdown', target: 'file', path: './out.md' },
+    });
+    vi.doMock('node:fs/promises', () => ({ writeFile: vi.fn().mockResolvedValue(undefined) }));
+
+    const result = await execute(command, { input: 'test' });
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toBe(markdownContent);
+  });
+
+  // ---------------------------------------------------------------------------
+  // JSON format + stdout: buffer then write formatted (no raw streaming)
+  // ---------------------------------------------------------------------------
+  it('buffers and formats JSON output before writing to stdout (no raw chunk streaming)', async () => {
+    mockNonStreaming('{"key":"value"}');
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    const { execute } = await import('./index.js');
+    const command = makeCommand({
+      output_spec: { format: 'json', target: 'stdout' },
+    });
+
+    const result = await execute(command, { input: 'test' });
+
+    expect(result.exitCode).toBe(0);
+    // Should write the formatted JSON (not raw chunks)
+    const written = writeSpy.mock.calls.map((c) => c[0]).join('');
+    const parsed: unknown = JSON.parse(written.trim());
+    expect(parsed).toEqual({ key: 'value' });
+    writeSpy.mockRestore();
+  });
+
+  // ---------------------------------------------------------------------------
   // Retry logic
   // ---------------------------------------------------------------------------
   it('retries on 429 and succeeds on the next attempt', async () => {
@@ -298,6 +338,74 @@ describe('execute()', () => {
 
     expect(result.exitCode).toBe(1);
     expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+
+  // ---------------------------------------------------------------------------
+  // Network-level retries (advisory [3])
+  // ---------------------------------------------------------------------------
+  it('retries on network errors (ECONNRESET) and succeeds', async () => {
+    vi.useFakeTimers();
+
+    const networkError = Object.assign(new Error('connection reset'), { code: 'ECONNRESET' });
+    mockCreate
+      .mockRejectedValueOnce(networkError)
+      .mockResolvedValueOnce({ choices: [{ message: { content: 'network retry ok' } }] });
+
+    const { execute } = await import('./index.js');
+    const command = makeCommand({
+      output_spec: { format: 'text', target: 'file', path: './out.txt' },
+    });
+    vi.doMock('node:fs/promises', () => ({ writeFile: vi.fn().mockResolvedValue(undefined) }));
+
+    const promise = execute(command, { input: 'test' });
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toBe('network retry ok');
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
+  });
+
+  // ---------------------------------------------------------------------------
+  // Model parameters forwarded to API (advisory [4])
+  // ---------------------------------------------------------------------------
+  it('forwards temperature and max_tokens to the API', async () => {
+    mockNonStreaming('result');
+
+    const { execute } = await import('./index.js');
+    const command: ValidatedCommand = {
+      steps: [
+        {
+          id: 'step1',
+          prompt: 'Hello {{input}}',
+          model: { name: 'gpt-4o', temperature: 0.2, max_tokens: 512 },
+          depends_on: [],
+        },
+      ],
+      input_spec: { from: 'args', var: 'input' },
+      output_spec: { format: 'text', target: 'file', path: './out.txt' },
+    };
+    vi.doMock('node:fs/promises', () => ({ writeFile: vi.fn().mockResolvedValue(undefined) }));
+
+    await execute(command, { input: 'test' });
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ temperature: 0.2, max_tokens: 512 }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // ExecutorError.cause property (advisory [5])
+  // ---------------------------------------------------------------------------
+  it('ExecutorError stores the cause property', async () => {
+    const { ExecutorError } = await import('./errors.js');
+    const cause = new Error('root cause');
+    const err = new ExecutorError('wrapper message', cause);
+    expect(err.message).toBe('wrapper message');
+    expect(err.cause).toBe(cause);
+    expect(err.name).toBe('ExecutorError');
   });
 
   // ---------------------------------------------------------------------------

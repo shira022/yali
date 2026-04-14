@@ -189,7 +189,9 @@ export async function execute(
   }
 
   const { output_spec } = command;
-  const isStreaming = output_spec.target === 'stdout';
+  // Stream raw chunks to stdout only when target is stdout AND format doesn't require
+  // post-processing. json must be buffered first so formatOutput() can parse the full text.
+  const useStreaming = output_spec.target === 'stdout' && output_spec.format !== 'json';
 
   // Mutable copy so we can accumulate step outputs
   const vars: Record<string, string> = { ...variables };
@@ -203,7 +205,7 @@ export async function execute(
       const { name: modelName, temperature, max_tokens } = rendered.model;
 
       let rawOutput: string;
-      if (isStreaming) {
+      if (useStreaming) {
         rawOutput = await callLLMStreaming(client, rendered.prompt, modelName, temperature, max_tokens);
       } else {
         rawOutput = await callLLM(client, rendered.prompt, modelName, temperature, max_tokens);
@@ -216,9 +218,14 @@ export async function execute(
 
     const formatted = formatOutput(lastOutput, output_spec.format);
 
-    // For file target: write buffered output now
-    if (!isStreaming) {
+    if (output_spec.target === 'file') {
       await writeOutput(formatted, output_spec.target, output_spec.path);
+    } else if (!useStreaming) {
+      // stdout + json: streaming was skipped, write the formatted output now
+      process.stdout.write(formatted);
+      if (!formatted.endsWith('\n')) {
+        process.stdout.write('\n');
+      }
     }
 
     return { exitCode: 0, output: formatted };
