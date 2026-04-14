@@ -203,3 +203,67 @@ describe('renderSteps — model spec preservation', () => {
     expect(result[0].model).toEqual({ name: 'gpt-4o', temperature: 0.3, max_tokens: 512 });
   });
 });
+
+// ---------------------------------------------------------------------------
+// renderSteps — topological sort
+// ---------------------------------------------------------------------------
+
+describe('renderSteps — topological sort', () => {
+  it('returns single step unchanged', () => {
+    const cmd = makeCommand();
+    const result = renderSteps(cmd, { input: 'hi' });
+    expect(result.map((s) => s.id)).toEqual(['step0']);
+  });
+
+  it('returns steps in dependency order when declared out of order', () => {
+    const cmd = makeCommand({
+      steps: [
+        // translate declared first but depends on summarize
+        { id: 'translate', prompt: '{{steps.summarize.output}}', model: { name: 'gpt-4o' }, depends_on: ['summarize'] },
+        { id: 'summarize', prompt: '{{input}}', model: { name: 'gpt-4o-mini' }, depends_on: [] },
+      ],
+    });
+    const result = renderSteps(cmd, { input: 'Hello', 'steps.summarize.output': 'Summary' });
+    expect(result.map((s) => s.id)).toEqual(['summarize', 'translate']);
+  });
+
+  it('handles empty steps array and returns []', () => {
+    const cmd = makeCommand({ steps: [] });
+    const result = renderSteps(cmd, {});
+    expect(result).toEqual([]);
+  });
+
+  it('throws RenderError on circular dependency', () => {
+    const cmd = makeCommand({
+      steps: [
+        { id: 'a', prompt: '{{input}}', model: { name: 'gpt-4o' }, depends_on: ['b'] },
+        { id: 'b', prompt: '{{input}}', model: { name: 'gpt-4o' }, depends_on: ['a'] },
+      ],
+    });
+    expect(() => renderSteps(cmd, { input: 'hi' })).toThrow(RenderError);
+  });
+
+  it('throws RenderError when depends_on references unknown step id', () => {
+    const cmd = makeCommand({
+      steps: [
+        { id: 'step1', prompt: '{{input}}', model: { name: 'gpt-4o' }, depends_on: ['nonexistent'] },
+      ],
+    });
+    expect(() => renderSteps(cmd, { input: 'hi' })).toThrow(RenderError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderSteps — advisory fixes
+// ---------------------------------------------------------------------------
+
+describe('renderSteps — advisory', () => {
+  it('throws on first missing variable and error message names that variable', () => {
+    const cmd = makeCommand({
+      steps: [
+        { id: 'step0', prompt: '{{foo}} and {{bar}}', model: { name: 'gpt-4o' }, depends_on: [] },
+      ],
+    });
+    expect(() => renderSteps(cmd, {})).toThrowError(/foo/);
+  });
+});
