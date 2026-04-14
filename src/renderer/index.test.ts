@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { renderSteps } from './index.js';
+import { renderSteps, orderSteps, renderStep } from './index.js';
 import { RenderError } from './errors.js';
-import type { ValidatedCommand } from '../types/index.js';
+import type { ValidatedCommand, Step } from '../types/index.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -265,5 +265,94 @@ describe('renderSteps — advisory', () => {
       ],
     });
     expect(() => renderSteps(cmd, {})).toThrowError(/foo/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// orderSteps — pure topological sort (no template expansion)
+// ---------------------------------------------------------------------------
+
+describe('orderSteps', () => {
+  it('returns single step in array', () => {
+    const cmd = makeCommand();
+    expect(orderSteps(cmd).map((s) => s.id)).toEqual(['step0']);
+  });
+
+  it('returns steps in dependency order when declared out of order', () => {
+    const cmd = makeCommand({
+      steps: [
+        { id: 'translate', prompt: '{{steps.summarize.output}}', model: { name: 'gpt-4o' }, depends_on: ['summarize'] },
+        { id: 'summarize', prompt: '{{input}}', model: { name: 'gpt-4o-mini' }, depends_on: [] },
+      ],
+    });
+    expect(orderSteps(cmd).map((s) => s.id)).toEqual(['summarize', 'translate']);
+  });
+
+  it('returns Step objects (not RenderedStep — prompts are NOT expanded)', () => {
+    const cmd = makeCommand();
+    const steps = orderSteps(cmd);
+    // prompt still contains the raw template placeholder
+    expect(steps[0].prompt).toBe('Translate: {{input}}');
+  });
+
+  it('returns empty array for empty steps', () => {
+    expect(orderSteps(makeCommand({ steps: [] }))).toEqual([]);
+  });
+
+  it('throws RenderError on circular dependency', () => {
+    const cmd = makeCommand({
+      steps: [
+        { id: 'a', prompt: '{{input}}', model: { name: 'gpt-4o' }, depends_on: ['b'] },
+        { id: 'b', prompt: '{{input}}', model: { name: 'gpt-4o' }, depends_on: ['a'] },
+      ],
+    });
+    expect(() => orderSteps(cmd)).toThrowError(/[Cc]ircular/);
+  });
+
+  it('throws RenderError when depends_on references unknown step id', () => {
+    const cmd = makeCommand({
+      steps: [
+        { id: 'step1', prompt: '{{input}}', model: { name: 'gpt-4o' }, depends_on: ['nonexistent'] },
+      ],
+    });
+    expect(() => orderSteps(cmd)).toThrowError(/nonexistent/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderStep — single step expansion (for Executor multi-step usage)
+// ---------------------------------------------------------------------------
+
+describe('renderStep', () => {
+  const step: Step = { id: 'step1', prompt: 'Translate: {{input}}', model: { name: 'gpt-4o' }, depends_on: [] };
+
+  it('expands template variables in a single step', () => {
+    const result = renderStep(step, { input: 'Hello' });
+    expect(result.prompt).toBe('Translate: Hello');
+  });
+
+  it('preserves all step metadata', () => {
+    const result = renderStep(step, { input: 'Hi' });
+    expect(result.id).toBe('step1');
+    expect(result.model).toEqual({ name: 'gpt-4o' });
+    expect(result.depends_on).toEqual([]);
+  });
+
+  it('throws RenderError for missing variable', () => {
+    expect(() => renderStep(step, {})).toThrow(RenderError);
+  });
+
+  it('supports multi-step pattern: Executor accumulates variables per step', () => {
+    const summarize: Step = { id: 'summarize', prompt: 'Summarize: {{input}}', model: { name: 'gpt-4o-mini' }, depends_on: [] };
+    const translate: Step = { id: 'translate', prompt: 'Translate: {{steps.summarize.output}}', model: { name: 'gpt-4o' }, depends_on: ['summarize'] };
+
+    // Step 1: Executor renders summarize with only {input}
+    const r1 = renderStep(summarize, { input: 'Hello' });
+    expect(r1.prompt).toBe('Summarize: Hello');
+
+    // Executor runs LLM → gets "A summary"
+    // Step 2: Executor adds step output to variables, then renders translate
+    const r2 = renderStep(translate, { input: 'Hello', 'steps.summarize.output': 'A summary' });
+    expect(r2.prompt).toBe('Translate: A summary');
   });
 });

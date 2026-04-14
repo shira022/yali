@@ -88,12 +88,48 @@ function topologicalSort(steps: Step[]): Step[] {
 }
 
 /**
+ * Pure function: returns steps sorted in a valid execution order based on
+ * `depends_on` dependencies. The Executor uses this for multi-step commands
+ * to know which step to run next, then calls `renderStep` per step as
+ * accumulated outputs become available.
+ *
+ * @throws {RenderError} if an unknown step id is referenced in `depends_on`,
+ *   or if a circular dependency is detected.
+ */
+export function orderSteps(command: ValidatedCommand): Step[] {
+  return topologicalSort(command.steps);
+}
+
+/**
+ * Pure function: expands {{variable}} templates in a single step's prompt.
+ * The Executor calls this per step in multi-step mode, after adding the
+ * previous step's LLM output to `variables` (e.g. `"steps.step1.output"`).
+ *
+ * @throws {RenderError} if a template variable is not found in `variables`.
+ */
+export function renderStep(
+  step: Step,
+  variables: Record<string, string>,
+): RenderedStep {
+  return {
+    id: step.id,
+    prompt: expandTemplate(step.prompt, variables),
+    model: step.model,
+    depends_on: step.depends_on,
+  };
+}
+
+/**
  * Pure function: topologically sorts steps by dependency graph, then expands
  * {{variable}} templates in each step's prompt.
  *
- * The caller (Executor) is responsible for populating `variables` with all
- * required values, including inter-step references such as
- * `"steps.summarize.output"` before calling this function for dependent steps.
+ * Use this for **single-step** commands, or for multi-step commands only when
+ * all required variables (including `"steps.X.output"` inter-step references)
+ * are already pre-populated in `variables`.
+ *
+ * For sequential multi-step execution, prefer `orderSteps` + `renderStep`
+ * so that each step's output can be added to `variables` before the next
+ * step is expanded.
  *
  * @throws {RenderError} if a template variable is not found in `variables`,
  *   if a `depends_on` references an unknown step id, or if a circular
@@ -103,11 +139,5 @@ export function renderSteps(
   command: ValidatedCommand,
   variables: Record<string, string>,
 ): RenderedStep[] {
-  const ordered = topologicalSort(command.steps);
-  return ordered.map((step) => ({
-    id: step.id,
-    prompt: expandTemplate(step.prompt, variables),
-    model: step.model,
-    depends_on: step.depends_on,
-  }));
+  return orderSteps(command).map((step) => renderStep(step, variables));
 }
