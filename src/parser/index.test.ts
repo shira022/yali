@@ -125,6 +125,15 @@ describe('ValidatedCommandSchema — validation errors', () => {
     expect(() => ValidatedCommandSchema.parse({ model: 'gpt-4o' })).toThrow();
   });
 
+  it('throws when both prompt and steps are specified', () => {
+    expect(() =>
+      ValidatedCommandSchema.parse({
+        prompt: 'Hello',
+        steps: [{ id: 's1', prompt: 'World', model: 'gpt-4o' }],
+      }),
+    ).toThrow(/Cannot specify both/);
+  });
+
   it('throws when input.from is an invalid enum value', () => {
     expect(() =>
       ValidatedCommandSchema.parse({
@@ -143,6 +152,16 @@ describe('ValidatedCommandSchema — validation errors', () => {
         output: { format: 'xml', target: 'stdout' },
       }),
     ).toThrow();
+  });
+
+  it('throws when output.target is "file" but output.path is missing', () => {
+    expect(() =>
+      ValidatedCommandSchema.parse({
+        prompt: 'Hi',
+        model: 'gpt-4o',
+        output: { format: 'text', target: 'file' },
+      }),
+    ).toThrow(/output\.path is required/);
   });
 
   it('throws when a step is missing required id field', () => {
@@ -185,6 +204,10 @@ describe('parseCommand — file I/O', () => {
 
   it('throws ParseError when file does not exist', () => {
     expect(() => parseCommand('/nonexistent/path/cmd.yaml')).toThrowError(ParseError);
+  });
+
+  it('error message says "Cannot find YAML file" when file does not exist', () => {
+    expect(() => parseCommand('/nonexistent/path/cmd.yaml')).toThrow('Cannot find YAML file');
   });
 
   it('throws ParseError on YAML syntax error', () => {

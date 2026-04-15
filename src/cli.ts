@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { parseCommand } from './parser/index.js';
 import { orderSteps, renderStep } from './renderer/index.js';
@@ -5,8 +6,8 @@ import { execute } from './executor/index.js';
 import { resolveInput, InputResolverError } from './cli/input-resolver.js';
 import { formatDryRun } from './cli/dry-run-formatter.js';
 
-function printUsage(): void {
-  process.stderr.write(
+function printUsage(stream: NodeJS.WriteStream = process.stdout): void {
+  stream.write(
     [
       'Usage: yali run <command.yaml> [options]',
       '',
@@ -42,7 +43,7 @@ export async function main(): Promise<void> {
 
   // Expect: yali run <file.yaml>
   if (positionals[0] !== 'run' || !positionals[1]) {
-    printUsage();
+    printUsage(process.stderr);
     process.exit(1);
   }
 
@@ -104,9 +105,18 @@ export async function main(): Promise<void> {
 }
 
 import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 
-// Only call main() when this file is the direct entry point (not when imported by tests)
-const isEntryPoint = process.argv[1] === fileURLToPath(import.meta.url);
+// Only call main() when this file is the direct entry point (not when imported by tests).
+// realpathSync resolves Windows Junction symlinks created by `npm link`, ensuring
+// process.argv[1] and import.meta.url compare against the same canonical path.
+const isEntryPoint = (() => {
+  try {
+    return realpathSync(process.argv[1]!) === fileURLToPath(import.meta.url);
+  } catch {
+    return process.argv[1] === fileURLToPath(import.meta.url);
+  }
+})();
 if (isEntryPoint) {
   main();
 }

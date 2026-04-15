@@ -74,11 +74,19 @@ export async function resolveInput(
           `Cannot read input file: ${filePath} — ${e instanceof Error ? e.message : String(e)}`,
         );
       }
+    } else {
+      throw new InputResolverError(
+        'input.from is "file" but no file path was provided. Use --input <path> or set input.path in the YAML.',
+      );
     }
   } else if (input_spec.from === 'stdin') {
     if (opts.hasStdin) {
       const stream = opts.stdin ?? process.stdin;
       variables[input_spec.var] = await readStream(stream);
+    } else if (opts.inputArg !== undefined) {
+      // Convenience fallback: when no stdin pipe but --input is provided,
+      // use --input directly. Useful for dry-run and ad-hoc testing without piping.
+      variables[input_spec.var] = opts.inputArg;
     }
   } else if (input_spec.from === 'args') {
     if (opts.inputArg !== undefined) {

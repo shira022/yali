@@ -151,8 +151,8 @@ describe('CLI Layer', () => {
     process.argv = ['node', 'cli.js', '--help'];
     await expect(main()).rejects.toThrow('process.exit(0)');
     expect(exitSpy).toHaveBeenCalledWith(0);
-    const stderrOutput = stderrSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('');
-    expect(stderrOutput).toContain('Usage: yali run');
+    const stdoutOutput = stdoutSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('');
+    expect(stdoutOutput).toContain('Usage: yali run');
   });
 
   it('exits 1 and prints to stderr when parseCommand throws', async () => {
