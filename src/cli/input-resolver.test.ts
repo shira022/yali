@@ -200,6 +200,53 @@ describe('resolveInput — Input Resolution Order', () => {
     ).rejects.toThrow(InputResolverError);
   });
 
+  // ── Priority 1.5: --input-file ────────────────────────────────────────────
+
+  it('Priority 1.5: --input-file reads file and sets the input variable', async () => {
+    mockedReadFileSync.mockReturnValue('file content via --input-file');
+    const command = makeCommand({ from: 'args' });
+    const result = await resolveInput(command, {
+      vars: [],
+      inputFileArg: './doc.txt',
+      hasStdin: false,
+    });
+    expect(result['input']).toBe('file content via --input-file');
+    expect(mockedReadFileSync).toHaveBeenCalledWith('./doc.txt', 'utf-8');
+  });
+
+  it('Priority 1.5: --input-file overrides stdin when both are provided', async () => {
+    mockedReadFileSync.mockReturnValue('from-file');
+    const command = makeCommand({ from: 'stdin' });
+    const result = await resolveInput(command, {
+      vars: [],
+      inputFileArg: './doc.txt',
+      hasStdin: true,
+      stdin: makeReadable('from-stdin'),
+    });
+    expect(result['input']).toBe('from-file');
+  });
+
+  it('Priority 1.5: --var overrides --input-file (--var has higher priority)', async () => {
+    mockedReadFileSync.mockReturnValue('from-file');
+    const command = makeCommand({ from: 'args' });
+    const result = await resolveInput(command, {
+      vars: ['input=from-var'],
+      inputFileArg: './doc.txt',
+      hasStdin: false,
+    });
+    expect(result['input']).toBe('from-var');
+  });
+
+  it('throws InputResolverError when --input-file path does not exist', async () => {
+    mockedReadFileSync.mockImplementation(() => {
+      throw new Error('ENOENT: no such file or directory');
+    });
+    const command = makeCommand({ from: 'args' });
+    await expect(
+      resolveInput(command, { vars: [], inputFileArg: './missing.txt', hasStdin: false }),
+    ).rejects.toThrow(InputResolverError);
+  });
+
   it('returns empty object when no sources apply', async () => {
     const command = makeCommand({ from: 'args' });
     const result = await resolveInput(command, { vars: [], hasStdin: false });

@@ -110,7 +110,7 @@ describe('renderSteps — undefined variable errors', () => {
 
   it('RenderError message names the missing variable', () => {
     const cmd = makeCommand();
-    expect(() => renderSteps(cmd, {})).toThrowError(/input/);
+    expect(() => renderSteps(cmd, {})).toThrowError('Variable "input" is not defined');
   });
 
   it('RenderError has correct name property', () => {

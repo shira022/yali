@@ -91,21 +91,34 @@ output:
 ### Input Resolution Order (highest priority first)
 
 ```
-1. CLI arguments (--var key=value)
-2. stdin (text piped in)
-3. File (input.from: file, input.path: ./data.txt)
-4. Default value defined inline in YAML (input.default: "...")
+1.   CLI arguments (--var key=value)
+1.5. --input-file <path>  (reads file directly as UTF-8; overrides stdin/args/file sources)
+2.   stdin (text piped in) — when input.from: stdin and stdin is piped
+2a.  --input "<value>"    — fallback when input.from: stdin but no pipe is available
+3.   File (input.from: file, input.path: ./data.txt)
+4.   Default value defined inline in YAML (input.default: "...")
 ```
 
 Higher-priority sources override lower-priority ones for the same variable name (following standard CLI convention).
+
+> **Note on `--input-file`:** When Windows PowerShell pipes non-ASCII text to external processes,
+> the default `$OutputEncoding` (ASCII) corrupts multibyte characters. The `--input-file` flag
+> reads the file directly inside Node.js as UTF-8, completely bypassing the pipe. It applies
+> regardless of `input.from` and has higher priority than stdin/args/file sources but lower than
+> `--var`.
+
+> **Note on `from: stdin` → `--input` fallback:** When `input.from: stdin` is specified but no
+> stdin is piped (e.g., during `--dry-run` testing or interactive use), `--input "<value>"` may
+> be provided as a convenience fallback. This allows dry-run testing without requiring a pipe.
 
 ### Variable Mapping Rules
 
 | YAML Definition | Template Variable | Input Source |
 |---|---|---|
-| `input.from: stdin` | `{{input}}` | Full text from pipe |
+| `input.from: stdin` | `{{input}}` | Full text from pipe; falls back to `--input` when not piped |
 | `input.from: args` | `{{input}}` | `yali run cmd.yaml --input "..."` |
-| `input.from: file` | `{{input}}` | `--input path/to/file.txt` |
+| `input.from: file` | `{{input}}` | `--input path/to/file.txt` or `input.path` in YAML |
+| `--input-file <path>` | `{{input}}` | File read directly as UTF-8 by Node.js (overrides stdin/args/file) |
 | `--var topic=AI` | `{{topic}}` | Can coexist with any `from` |
 | `steps.X.output` | `{{steps.X.output}}` | Output of a preceding step (multi-step mode) |
 

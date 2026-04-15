@@ -432,4 +432,62 @@ describe('execute()', () => {
     expect(result.exitCode).toBe(1);
     expect(result.output).toContain('path');
   });
+
+  // ---------------------------------------------------------------------------
+  // Multi-step streaming: only the final step streams to stdout
+  // ---------------------------------------------------------------------------
+  it('only the final step uses streaming; intermediate steps are buffered', async () => {
+    // Step 1: buffered (non-streaming) response
+    // Step 2: streaming response (final step)
+    mockCreate
+      .mockResolvedValueOnce({ choices: [{ message: { content: 'intermediate output' } }] })
+      .mockImplementationOnce(async () => {
+        async function* gen() {
+          yield { choices: [{ delta: { content: 'final ' } }] };
+          yield { choices: [{ delta: { content: 'output' } }] };
+        }
+        return gen();
+      });
+
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    const { execute } = await import('./index.js');
+    const command: ValidatedCommand = {
+      steps: [
+        {
+          id: 'step1',
+          prompt: 'Summarize: {{input}}',
+          model: { name: 'gpt-4o-mini' },
+          depends_on: [],
+        },
+        {
+          id: 'step2',
+          prompt: 'Translate: {{steps.step1.output}}',
+          model: { name: 'gpt-4o' },
+          depends_on: ['step1'],
+        },
+      ],
+      input_spec: { from: 'args', var: 'input' },
+      output_spec: { format: 'text', target: 'stdout' },
+    };
+
+    const result = await execute(command, { input: 'some long text' });
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toBe('final output');
+
+    // First call must be non-streaming (stream: false or absent)
+    const firstCallArgs = mockCreate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(firstCallArgs?.['stream']).toBeFalsy();
+
+    // Second call (final step) must be streaming
+    const secondCallArgs = mockCreate.mock.calls[1]?.[0] as Record<string, unknown>;
+    expect(secondCallArgs?.['stream']).toBe(true);
+
+    // stdout should receive the streamed chunks from the final step
+    expect(writeSpy).toHaveBeenCalledWith('final ');
+    expect(writeSpy).toHaveBeenCalledWith('output');
+
+    writeSpy.mockRestore();
+  });
 });
