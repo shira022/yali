@@ -12,11 +12,12 @@ function printUsage(stream: NodeJS.WriteStream = process.stdout): void {
       'Usage: yali run <command.yaml> [options]',
       '',
       'Options:',
-      '  --input <value|path>   Set the primary input variable, or file path when input.from is "file"',
-      '  --var <key=value>     Set an arbitrary template variable (repeatable)',
-      '  --dry-run             Render prompts without calling the LLM',
-      '  --format <text|json>  Output format for --dry-run (default: text)',
-      '  --help                Show this help message',
+      '  --input <value|path>        Set the primary input variable, or file path when input.from is "file"',
+      '  --input-file <path>         Read a file as the primary input variable (avoids PowerShell pipe encoding issues)',
+      '  --var <key=value>          Set an arbitrary template variable (repeatable)',
+      '  --dry-run                  Render prompts without calling the LLM',
+      '  --format <text|json>       Output format for --dry-run (default: text)',
+      '  --help                     Show this help message',
       '',
     ].join('\n'),
   );
@@ -27,6 +28,7 @@ export async function main(): Promise<void> {
     args: process.argv.slice(2),
     options: {
       input: { type: 'string' },
+      'input-file': { type: 'string' },
       var: { type: 'string', multiple: true },
       'dry-run': { type: 'boolean', default: false },
       format: { type: 'string', default: 'text' },
@@ -68,6 +70,7 @@ export async function main(): Promise<void> {
     variables = await resolveInput(command, {
       vars,
       inputArg: values['input'],
+      inputFileArg: values['input-file'],
       hasStdin,
     });
   } catch (e) {
