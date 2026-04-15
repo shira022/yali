@@ -27,9 +27,11 @@ export function readStream(stream: NodeJS.ReadableStream): Promise<string> {
  * Resolves the variable map for a command according to the Input Resolution Order
  * defined in spec §2 (highest priority first):
  *
- *   1. CLI --var key=value flags
- *   2. stdin (piped text)  → mapped to `input_spec.var`
- *   3. File  (input.from: file, --input-file <path> or input.path)
+ *   1. CLI --var key=value flags  (always highest — any variable)
+ *   2/3. Primary input source — determined by input_spec.from:
+ *        - 'args'  → --input <value>
+ *        - 'stdin' → piped stdin text
+ *        - 'file'  → --input <path> (or input.path from YAML) read as file
  *   4. Default value defined in YAML (input.default)
  *
  * Returns a Record<string, string> ready to pass to the Renderer.
@@ -39,10 +41,13 @@ export async function resolveInput(
   opts: {
     /** Values from --var key=value (may be supplied multiple times). */
     vars: string[];
-    /** Value from --input flag (maps to input_spec.var, treated as args source). */
+    /**
+     * Value from --input flag.
+     * - When input.from === 'args': used directly as the variable value.
+     * - When input.from === 'file': treated as the file path to read.
+     * - When input.from === 'stdin': ignored (stdin is used instead).
+     */
     inputArg?: string;
-    /** Path from --input-file flag (used when input.from === 'file'). */
-    inputFile?: string;
     /** Whether stdin is available (i.e. !process.stdin.isTTY). */
     hasStdin: boolean;
     /** Injectable stdin stream for testing. Defaults to process.stdin. */
@@ -57,9 +62,10 @@ export async function resolveInput(
     variables[input_spec.var] = input_spec.default;
   }
 
-  // Priority 3 — File source
+  // Priority 2/3 — Primary input source, gated by input.from (spec §2)
   if (input_spec.from === 'file') {
-    const filePath = opts.inputFile ?? input_spec.path;
+    // --input provides the file path; fall back to input.path from YAML
+    const filePath = opts.inputArg ?? input_spec.path;
     if (filePath) {
       try {
         variables[input_spec.var] = readFileSync(filePath, 'utf-8');
@@ -69,18 +75,15 @@ export async function resolveInput(
         );
       }
     }
-  }
-
-  // Priority 2 — stdin (piped)
-  if (opts.hasStdin) {
-    const stream = opts.stdin ?? process.stdin;
-    const text = await readStream(stream);
-    variables[input_spec.var] = text;
-  }
-
-  // Priority 2 (args source) — --input flag maps to the primary input variable
-  if (opts.inputArg !== undefined) {
-    variables[input_spec.var] = opts.inputArg;
+  } else if (input_spec.from === 'stdin') {
+    if (opts.hasStdin) {
+      const stream = opts.stdin ?? process.stdin;
+      variables[input_spec.var] = await readStream(stream);
+    }
+  } else if (input_spec.from === 'args') {
+    if (opts.inputArg !== undefined) {
+      variables[input_spec.var] = opts.inputArg;
+    }
   }
 
   // Priority 1 — --var key=value flags (highest priority, applied last)

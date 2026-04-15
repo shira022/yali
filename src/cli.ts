@@ -11,8 +11,7 @@ function printUsage(): void {
       'Usage: yali run <command.yaml> [options]',
       '',
       'Options:',
-      '  --input <value>       Set the primary input variable',
-      '  --input-file <path>   Read the primary input from a file',
+      '  --input <value|path>   Set the primary input variable, or file path when input.from is "file"',
       '  --var <key=value>     Set an arbitrary template variable (repeatable)',
       '  --dry-run             Render prompts without calling the LLM',
       '  --format <text|json>  Output format for --dry-run (default: text)',
@@ -27,7 +26,6 @@ export async function main(): Promise<void> {
     args: process.argv.slice(2),
     options: {
       input: { type: 'string' },
-      'input-file': { type: 'string' },
       var: { type: 'string', multiple: true },
       'dry-run': { type: 'boolean', default: false },
       format: { type: 'string', default: 'text' },
@@ -69,7 +67,6 @@ export async function main(): Promise<void> {
     variables = await resolveInput(command, {
       vars,
       inputArg: values['input'],
-      inputFile: values['input-file'],
       hasStdin,
     });
   } catch (e) {

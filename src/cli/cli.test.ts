@@ -146,4 +146,31 @@ describe('CLI Layer', () => {
       expect.objectContaining({ hasStdin: true }),
     );
   });
+
+  it('exits 0 and prints usage when --help is passed', async () => {
+    process.argv = ['node', 'cli.js', '--help'];
+    await expect(main()).rejects.toThrow('process.exit(0)');
+    expect(exitSpy).toHaveBeenCalledWith(0);
+    const stderrOutput = stderrSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('');
+    expect(stderrOutput).toContain('Usage: yali run');
+  });
+
+  it('exits 1 and prints to stderr when parseCommand throws', async () => {
+    process.argv = ['node', 'cli.js', 'run', 'bad.yaml'];
+    mockedParseCommand.mockImplementation(() => { throw new Error('YAML syntax error'); });
+    await expect(main()).rejects.toThrow('process.exit(1)');
+    const stderrOutput = stderrSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('');
+    expect(stderrOutput).toContain('YAML syntax error');
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it('exits 1 when resolveInput throws InputResolverError', async () => {
+    process.argv = ['node', 'cli.js', 'run', 'cmd.yaml'];
+    const { InputResolverError: IRError } = await import('./input-resolver.js');
+    mockedResolveInput.mockRejectedValue(new IRError('bad --var format'));
+    await expect(main()).rejects.toThrow('process.exit(1)');
+    const stderrOutput = stderrSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('');
+    expect(stderrOutput).toContain('bad --var format');
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
 });
