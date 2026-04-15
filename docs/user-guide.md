@@ -70,6 +70,7 @@ yali run <command.yaml> [options]
 | Option | Argument | Description |
 |---|---|---|
 | `--input <value\|path>` | string | Sets the primary input variable. Behavior depends on `input.from` in the YAML: with `from: args`, the value is used directly; with `from: file`, the value is treated as a file path to read. |
+| `--input-file <path>` | file path | Reads a file as UTF-8 directly in Node.js and uses the content as the primary input variable. Works regardless of `input.from`. Recommended on Windows to avoid PowerShell pipe encoding issues with non-ASCII text. |
 | `--var <key=value>` | `key=value` | Sets an arbitrary template variable. Repeatable — pass multiple `--var` flags for multiple variables. Takes the highest resolution priority (see [Input Resolution](#input-resolution)). |
 | `--dry-run` | — | Renders all prompts without calling the LLM API. Useful for inspecting expanded templates before running. |
 | `--format <text\|json>` | `text` or `json` | Controls the output format for `--dry-run`. Defaults to `text`. Has no effect without `--dry-run`. |
@@ -78,14 +79,14 @@ yali run <command.yaml> [options]
 ### Basic usage
 
 ```bash
-# Run a command file with piped stdin
-echo "Hello, world" | yali run translate.yaml
-
-# Run with explicit --input value
+# Run with explicit --input value (recommended: avoids pipe encoding issues)
 yali run translate.yaml --input "Hello, world"
 
-# Run with a file as input
-yali run summarize.yaml --input ./article.txt
+# Run with a file as input (--input-file reads directly as UTF-8, avoids encoding issues)
+yali run summarize.yaml --input-file ./article.txt
+
+# Run a command file with piped stdin (ASCII text only on Windows)
+echo "Hello, world" | yali run translate.yaml
 
 # Inject template variables
 yali run greet.yaml --var name=Alice --var lang=French
@@ -96,6 +97,8 @@ yali run pipeline.yaml --input "some text" --dry-run
 # Preview as JSON (machine-readable)
 yali run pipeline.yaml --input "some text" --dry-run --format json
 ```
+
+> **Windows note:** PowerShell's default pipe encoding is ASCII. Piping non-ASCII text (e.g. Japanese) via `echo "..." | yali run ...` or `Get-Content ... | yali run ...` will garble multibyte characters. Use `--input "text"` or `--input-file ./file.txt` instead.
 
 ---
 
