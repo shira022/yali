@@ -71,6 +71,7 @@ Usage: yali run <command.yaml> [options]
 | オプション | 引数 | 説明 |
 |---|---|---|
 | `--input <value\|path>` | 文字列またはファイルパス | プライマリ入力変数を設定。`input.from` が `file` の場合はファイルパスとして解釈される |
+| `--input-file <path>` | ファイルパス | ファイルをNode.jsが直接UTF-8で読み込みプライマリ入力変数として使用。PowerShellのパイプエンコーディング問題を回避できる |
 | `--var <key=value>` | `キー=値` 形式 | 任意のテンプレート変数を設定。複数回指定可能 |
 | `--dry-run` | なし | LLMを呼び出さずにプロンプトのレンダリングのみ行う |
 | `--format <text\|json>` | `text` または `json` | `--dry-run` の出力フォーマット（デフォルト: `text`） |
@@ -79,11 +80,14 @@ Usage: yali run <command.yaml> [options]
 ### 基本的な使い方
 
 ```bash
-# YAMLコマンドを実行（stdin入力）
-echo "Hello, world" | yali run translate.yaml
-
-# --input で値を直接指定
+# --input で値を直接指定（推奨：パイプエンコーディング問題を回避）
 yali run translate.yaml --input "Hello, world"
+
+# ファイルをそのまま渡す（--input-file 推奨：文字化けしない）
+yali run summarize-then-translate.yaml --input-file ./report.txt
+
+# stdin パイプ（ASCII テキストのみ推奨）
+echo "Hello, world" | yali run translate.yaml
 
 # 複数の変数を注入
 yali run summarize.yaml --input "本文..." --var lang=Japanese --var style=formal
@@ -94,6 +98,12 @@ yali run translate.yaml --input "test" --dry-run
 # ドライランをJSONで出力
 yali run translate.yaml --input "test" --dry-run --format json
 ```
+
+> **Windowsでの注意事項**
+> PowerShellのデフォルトパイプエンコーディングはASCIIのため、日本語などのマルチバイト文字をパイプ経由で渡すと文字化けする場合があります。
+> - 文字列は `--input "テキスト"` で渡す（引数なので文字化けしない）
+> - ファイルは `--input-file ./file.txt` で渡す（Node.jsがUTF-8で直接読む）
+> - パイプを使う場合は先に `$OutputEncoding = [System.Text.Encoding]::UTF8` を設定する
 
 ---
 
@@ -272,8 +282,14 @@ input:
 ```
 
 ```bash
+# Windows推奨：--input でテキストを直接渡す（文字化けしない）
+yali run translate.yaml --input "翻訳するテキスト"
+
+# Unix/Linux/macOS：パイプでも動作
 echo "翻訳するテキスト" | yali run translate.yaml
-cat document.txt | yali run summarize.yaml
+
+# ファイルを渡す場合は --input-file 推奨（全プラットフォームで文字化けしない）
+yali run summarize.yaml --input-file document.txt
 ```
 
 #### from: args（直接値指定）
@@ -428,12 +444,15 @@ output:
 ```
 
 ```bash
-# jq でフィールドを抽出
+# Windows推奨：--input で直接テキストを渡す（文字化けしない）
+yali run analyze.yaml --input "素晴らしい製品です！" | jq '.sentiment'
+
+# Unix/Linux/macOS：パイプでも動作
 echo "素晴らしい製品です！" | yali run analyze.yaml | jq '.sentiment'
 
 # 複数ファイルをバッチ処理
 for f in reviews/*.txt; do
-  cat "$f" | yali run analyze.yaml | jq -c '{file: "'"$f"'", sentiment: .sentiment}'
+  yali run analyze.yaml --input-file "$f" | jq -c '{file: "'"$f"'", sentiment: .sentiment}'
 done
 ```
 
@@ -536,6 +555,10 @@ output:
 ```
 
 ```bash
+# Windows推奨：--input で直接渡す
+yali run translate.yaml --input "The quick brown fox jumps over the lazy dog."
+
+# Unix/Linux/macOS：パイプでも動作
 echo "The quick brown fox jumps over the lazy dog." | yali run translate.yaml
 ```
 

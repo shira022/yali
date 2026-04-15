@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { parseCommand } from './parser/index.js';
 import { orderSteps, renderStep } from './renderer/index.js';
@@ -5,17 +6,18 @@ import { execute } from './executor/index.js';
 import { resolveInput, InputResolverError } from './cli/input-resolver.js';
 import { formatDryRun } from './cli/dry-run-formatter.js';
 
-function printUsage(): void {
-  process.stderr.write(
+function printUsage(stream: NodeJS.WriteStream = process.stdout): void {
+  stream.write(
     [
       'Usage: yali run <command.yaml> [options]',
       '',
       'Options:',
-      '  --input <value|path>   Set the primary input variable, or file path when input.from is "file"',
-      '  --var <key=value>     Set an arbitrary template variable (repeatable)',
-      '  --dry-run             Render prompts without calling the LLM',
-      '  --format <text|json>  Output format for --dry-run (default: text)',
-      '  --help                Show this help message',
+      '  --input <value|path>        Set the primary input variable, or file path when input.from is "file"',
+      '  --input-file <path>         Read a file as the primary input variable (avoids PowerShell pipe encoding issues)',
+      '  --var <key=value>          Set an arbitrary template variable (repeatable)',
+      '  --dry-run                  Render prompts without calling the LLM',
+      '  --format <text|json>       Output format for --dry-run (default: text)',
+      '  --help                     Show this help message',
       '',
     ].join('\n'),
   );
@@ -26,6 +28,7 @@ export async function main(): Promise<void> {
     args: process.argv.slice(2),
     options: {
       input: { type: 'string' },
+      'input-file': { type: 'string' },
       var: { type: 'string', multiple: true },
       'dry-run': { type: 'boolean', default: false },
       format: { type: 'string', default: 'text' },
@@ -42,7 +45,7 @@ export async function main(): Promise<void> {
 
   // Expect: yali run <file.yaml>
   if (positionals[0] !== 'run' || !positionals[1]) {
-    printUsage();
+    printUsage(process.stderr);
     process.exit(1);
   }
 
@@ -67,6 +70,7 @@ export async function main(): Promise<void> {
     variables = await resolveInput(command, {
       vars,
       inputArg: values['input'],
+      inputFileArg: values['input-file'],
       hasStdin,
     });
   } catch (e) {
@@ -104,9 +108,18 @@ export async function main(): Promise<void> {
 }
 
 import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 
-// Only call main() when this file is the direct entry point (not when imported by tests)
-const isEntryPoint = process.argv[1] === fileURLToPath(import.meta.url);
+// Only call main() when this file is the direct entry point (not when imported by tests).
+// realpathSync resolves Windows Junction symlinks created by `npm link`, ensuring
+// process.argv[1] and import.meta.url compare against the same canonical path.
+const isEntryPoint = (() => {
+  try {
+    return realpathSync(process.argv[1]!) === fileURLToPath(import.meta.url);
+  } catch {
+    return process.argv[1] === fileURLToPath(import.meta.url);
+  }
+})();
 if (isEntryPoint) {
   main();
 }

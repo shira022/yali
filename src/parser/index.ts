@@ -9,7 +9,7 @@ export function parseCommand(filePath: string): ValidatedCommand {
   try {
     raw = readFileSync(filePath, 'utf-8');
   } catch (e) {
-    throw new ParseError(`Cannot read file: ${filePath}`, e);
+    throw new ParseError(`Cannot find YAML file: ${filePath}`, e);
   }
 
   let yaml: unknown;

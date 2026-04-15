@@ -48,6 +48,12 @@ export async function resolveInput(
      * - When input.from === 'stdin': ignored (stdin is used instead).
      */
     inputArg?: string;
+    /**
+     * Value from --input-file flag. Reads the specified file as UTF-8 and uses the content
+     * as the primary input variable value — regardless of input.from setting.
+     * This bypasses PowerShell pipe encoding issues for Japanese/CJK text on Windows.
+     */
+    inputFileArg?: string;
     /** Whether stdin is available (i.e. !process.stdin.isTTY). */
     hasStdin: boolean;
     /** Injectable stdin stream for testing. Defaults to process.stdin. */
@@ -74,15 +80,35 @@ export async function resolveInput(
           `Cannot read input file: ${filePath} — ${e instanceof Error ? e.message : String(e)}`,
         );
       }
+    } else {
+      throw new InputResolverError(
+        'input.from is "file" but no file path was provided. Use --input <path> or set input.path in the YAML.',
+      );
     }
   } else if (input_spec.from === 'stdin') {
     if (opts.hasStdin) {
       const stream = opts.stdin ?? process.stdin;
       variables[input_spec.var] = await readStream(stream);
+    } else if (opts.inputArg !== undefined) {
+      // Convenience fallback: when no stdin pipe but --input is provided,
+      // use --input directly. Useful for dry-run and ad-hoc testing without piping.
+      variables[input_spec.var] = opts.inputArg;
     }
   } else if (input_spec.from === 'args') {
     if (opts.inputArg !== undefined) {
       variables[input_spec.var] = opts.inputArg;
+    }
+  }
+
+  // Priority 1.5 — --input-file flag: read file directly in Node.js (UTF-8), bypassing pipe encoding.
+  // Applied after primary source so it overrides stdin/args, but before --var so --var can still override.
+  if (opts.inputFileArg !== undefined) {
+    try {
+      variables[input_spec.var] = readFileSync(opts.inputFileArg, 'utf-8');
+    } catch (e) {
+      throw new InputResolverError(
+        `Cannot read --input-file: ${opts.inputFileArg} — ${e instanceof Error ? e.message : String(e)}`,
+      );
     }
   }
 

@@ -87,10 +87,12 @@ describe('CLI Layer', () => {
     });
   });
 
-  it('exits 1 and prints usage when subcommand is missing', async () => {
+  it('exits 1 and prints usage to stderr when subcommand is missing', async () => {
     process.argv = ['node', 'cli.js'];
     await expect(main()).rejects.toThrow('process.exit(1)');
     expect(exitSpy).toHaveBeenCalledWith(1);
+    const stderrOutput = stderrSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('');
+    expect(stderrOutput).toContain('Usage: yali run');
   });
 
   it('exits 1 and prints usage when yaml file is missing', async () => {
@@ -151,8 +153,8 @@ describe('CLI Layer', () => {
     process.argv = ['node', 'cli.js', '--help'];
     await expect(main()).rejects.toThrow('process.exit(0)');
     expect(exitSpy).toHaveBeenCalledWith(0);
-    const stderrOutput = stderrSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('');
-    expect(stderrOutput).toContain('Usage: yali run');
+    const stdoutOutput = stdoutSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('');
+    expect(stdoutOutput).toContain('Usage: yali run');
   });
 
   it('exits 1 and prints to stderr when parseCommand throws', async () => {

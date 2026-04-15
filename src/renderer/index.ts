@@ -19,7 +19,7 @@ function expandTemplate(template: string, variables: Record<string, string>): st
   return template.replace(TEMPLATE_PATTERN, (_match, key: string) => {
     const trimmedKey = key.trim();
     if (!(trimmedKey in variables)) {
-      throw new RenderError(`Undefined variable: "{{${trimmedKey}}}" has no value in the variable map`);
+      throw new RenderError(`Variable "${trimmedKey}" is not defined`);
     }
     return variables[trimmedKey];
   });

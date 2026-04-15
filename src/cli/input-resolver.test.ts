@@ -71,7 +71,7 @@ describe('resolveInput — Input Resolution Order', () => {
     expect(result['input']).toBe('from-stdin');
   });
 
-  it('from=stdin: --input arg is ignored (stdin source uses piped stdin)', async () => {
+  it('from=stdin: --input arg is ignored when stdin IS piped (stdin takes priority)', async () => {
     const command = makeCommand({ from: 'stdin' });
     const result = await resolveInput(command, {
       vars: [],
@@ -80,6 +80,16 @@ describe('resolveInput — Input Resolution Order', () => {
       stdin: makeReadable('from-stdin'),
     });
     expect(result['input']).toBe('from-stdin');
+  });
+
+  it('from=stdin: --input used as fallback when no stdin pipe is available', async () => {
+    const command = makeCommand({ from: 'stdin' });
+    const result = await resolveInput(command, {
+      vars: [],
+      inputArg: 'fallback-value',
+      hasStdin: false,
+    });
+    expect(result['input']).toBe('fallback-value');
   });
 
   it('from=args: --input value is used directly', async () => {
@@ -180,6 +190,60 @@ describe('resolveInput — Input Resolution Order', () => {
     const command = makeCommand({ from: 'file', path: './missing.txt' });
     await expect(
       resolveInput(command, { vars: [], hasStdin: false }),
+    ).rejects.toThrow(InputResolverError);
+  });
+
+  it('throws InputResolverError when from=file with no --input and no YAML path', async () => {
+    const command = makeCommand({ from: 'file' }); // no path in YAML
+    await expect(
+      resolveInput(command, { vars: [], hasStdin: false }), // no --input either
+    ).rejects.toThrow(InputResolverError);
+  });
+
+  // ── Priority 1.5: --input-file ────────────────────────────────────────────
+
+  it('Priority 1.5: --input-file reads file and sets the input variable', async () => {
+    mockedReadFileSync.mockReturnValue('file content via --input-file');
+    const command = makeCommand({ from: 'args' });
+    const result = await resolveInput(command, {
+      vars: [],
+      inputFileArg: './doc.txt',
+      hasStdin: false,
+    });
+    expect(result['input']).toBe('file content via --input-file');
+    expect(mockedReadFileSync).toHaveBeenCalledWith('./doc.txt', 'utf-8');
+  });
+
+  it('Priority 1.5: --input-file overrides stdin when both are provided', async () => {
+    mockedReadFileSync.mockReturnValue('from-file');
+    const command = makeCommand({ from: 'stdin' });
+    const result = await resolveInput(command, {
+      vars: [],
+      inputFileArg: './doc.txt',
+      hasStdin: true,
+      stdin: makeReadable('from-stdin'),
+    });
+    expect(result['input']).toBe('from-file');
+  });
+
+  it('Priority 1.5: --var overrides --input-file (--var has higher priority)', async () => {
+    mockedReadFileSync.mockReturnValue('from-file');
+    const command = makeCommand({ from: 'args' });
+    const result = await resolveInput(command, {
+      vars: ['input=from-var'],
+      inputFileArg: './doc.txt',
+      hasStdin: false,
+    });
+    expect(result['input']).toBe('from-var');
+  });
+
+  it('throws InputResolverError when --input-file path does not exist', async () => {
+    mockedReadFileSync.mockImplementation(() => {
+      throw new Error('ENOENT: no such file or directory');
+    });
+    const command = makeCommand({ from: 'args' });
+    await expect(
+      resolveInput(command, { vars: [], inputFileArg: './missing.txt', hasStdin: false }),
     ).rejects.toThrow(InputResolverError);
   });
 

@@ -28,7 +28,10 @@ const OutputSpecSchema = z.object({
   format: z.enum(['text', 'markdown', 'json']),
   target: z.enum(['stdout', 'file']),
   path: z.string().optional(),
-});
+}).refine(
+  (val) => val.target !== 'file' || val.path !== undefined,
+  { message: 'output.path is required when output.target is "file"' },
+);
 
 const ToolSpecSchema = z.object({
   type: z.string(),
@@ -60,7 +63,10 @@ export const ValidatedCommandSchema: z.ZodType<ValidatedCommand, z.ZodTypeDef, u
 
     // Resolve steps
     let steps: ValidatedCommand['steps'];
-    if (data.steps !== undefined) {
+    if (data.steps !== undefined && data.prompt !== undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Cannot specify both "prompt" and "steps" in the same YAML file' });
+      return z.NEVER;
+    } else if (data.steps !== undefined) {
       const stepsResult = z.array(StepSchema).safeParse(data.steps);
       if (!stepsResult.success) {
         stepsResult.error.issues.forEach((issue) => ctx.addIssue(issue));

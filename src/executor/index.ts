@@ -200,12 +200,16 @@ export async function execute(
     const orderedSteps = orderSteps(command);
     let lastOutput = '';
 
-    for (const step of orderedSteps) {
+    for (let i = 0; i < orderedSteps.length; i++) {
+      const step = orderedSteps[i]!;
       const rendered = renderStep(step, vars);
       const { name: modelName, temperature, max_tokens } = rendered.model;
 
+      // Only stream the final step to stdout; intermediate steps must be buffered
+      // so their output doesn't appear in the terminal before the pipeline is done.
+      const isFinalStep = i === orderedSteps.length - 1;
       let rawOutput: string;
-      if (useStreaming) {
+      if (useStreaming && isFinalStep) {
         rawOutput = await callLLMStreaming(client, rendered.prompt, modelName, temperature, max_tokens);
       } else {
         rawOutput = await callLLM(client, rendered.prompt, modelName, temperature, max_tokens);
