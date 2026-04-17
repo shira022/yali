@@ -94,7 +94,7 @@ describe('execute()', () => {
     const { execute } = await import('./index.js');
     const result = await execute(makeCommand(), { input: 'world' });
     expect(result.exitCode).toBe(1);
-    expect(result.output).toContain('OPENAI_API_KEY');
+    expect(result.output).toContain('yali config set openai.api_key');
   });
 
   // ---------------------------------------------------------------------------

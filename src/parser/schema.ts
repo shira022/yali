@@ -1,10 +1,13 @@
 import { z } from 'zod';
-import type { ValidatedCommand } from '../types/index.js';
+import type { ProviderName, ValidatedCommand } from '../types/index.js';
+
+const PROVIDER_VALUES = ['openai', 'anthropic', 'google', 'ollama'] as const;
 
 const ModelSpecSchema = z.preprocess(
   (val) => (typeof val === 'string' ? { name: val } : val),
   z.object({
     name: z.string(),
+    provider: z.enum(PROVIDER_VALUES).optional(),
     temperature: z.number().optional(),
     max_tokens: z.number().int().optional(),
   })
@@ -85,6 +88,22 @@ export const ValidatedCommandSchema: z.ZodType<ValidatedCommand, z.ZodTypeDef, u
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Must provide either "prompt" or "steps"' });
       return z.NEVER;
     }
+
+    // Resolve top-level provider and propagate to steps
+    let topLevelProvider: ProviderName | undefined;
+    if (data.model !== undefined) {
+      const topLevelModelResult = ModelSpecSchema.safeParse(data.model);
+      if (topLevelModelResult.success) {
+        topLevelProvider = topLevelModelResult.data.provider;
+      }
+    }
+    steps = steps.map(step => ({
+      ...step,
+      model: {
+        ...step.model,
+        provider: step.model.provider ?? topLevelProvider ?? 'openai',
+      },
+    }));
 
     // Resolve input_spec
     let input_spec: ValidatedCommand['input_spec'];

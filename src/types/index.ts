@@ -1,9 +1,14 @@
+/** Supported LLM provider identifiers. */
+export type ProviderName = 'openai' | 'anthropic' | 'google' | 'ollama';
+
 /**
  * Describes the LLM model configuration for a step.
  * Used within Step, always normalized to object form by the Parser.
  */
 export interface ModelSpec {
   name: string;
+  /** LLM provider. Resolved by the Parser; defaults to 'openai' if omitted. */
+  provider?: ProviderName;
   temperature?: number;
   max_tokens?: number;
 }
