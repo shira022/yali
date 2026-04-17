@@ -1,130 +1,9 @@
 import { writeFile } from 'node:fs/promises';
-import OpenAI from 'openai';
-import type { ValidatedCommand, ExecutionResult } from '../types/index.js';
+import type { ValidatedCommand, ExecutionResult, ProviderName } from '../types/index.js';
 import { orderSteps, renderStep } from '../renderer/index.js';
 import { ExecutorError } from './errors.js';
-
-// Retryable HTTP status codes
-const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
-const MAX_RETRIES = 3;
-const BASE_DELAY_MS = 1000;
-
-function createClient(): OpenAI {
-  const apiKey = process.env['OPENAI_API_KEY'];
-  if (!apiKey) {
-    throw new ExecutorError('OPENAI_API_KEY environment variable is not set');
-  }
-  return new OpenAI({ apiKey });
-}
-
-function isRetryable(error: unknown): boolean {
-  if (error instanceof OpenAI.APIError) {
-    return RETRYABLE_STATUS_CODES.has(error.status);
-  }
-  // Network errors (no status code) are retryable
-  if (error instanceof Error && 'code' in error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    return code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ENOTFOUND';
-  }
-  return false;
-}
-
-async function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Calls the LLM API with exponential-backoff retry.
- * Returns the full response text.
- */
-async function callLLM(
-  client: OpenAI,
-  prompt: string,
-  modelName: string,
-  temperature?: number,
-  maxTokens?: number,
-): Promise<string> {
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    if (attempt > 0) {
-      await sleep(BASE_DELAY_MS * 2 ** (attempt - 1));
-    }
-
-    try {
-      const response = await client.chat.completions.create({
-        model: modelName,
-        messages: [{ role: 'user', content: prompt }],
-        ...(temperature !== undefined && { temperature }),
-        ...(maxTokens !== undefined && { max_tokens: maxTokens }),
-      });
-
-      return response.choices[0]?.message?.content ?? '';
-    } catch (error) {
-      lastError = error;
-      if (!isRetryable(error) || attempt === MAX_RETRIES) {
-        break;
-      }
-    }
-  }
-
-  const message =
-    lastError instanceof Error ? lastError.message : String(lastError);
-  throw new ExecutorError(`LLM API call failed after ${MAX_RETRIES} retries: ${message}`, lastError);
-}
-
-/**
- * Calls the LLM API with streaming and writes chunks to stdout in real-time.
- * Returns the accumulated full response text.
- */
-async function callLLMStreaming(
-  client: OpenAI,
-  prompt: string,
-  modelName: string,
-  temperature?: number,
-  maxTokens?: number,
-): Promise<string> {
-  let lastError: unknown;
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    if (attempt > 0) {
-      await sleep(BASE_DELAY_MS * 2 ** (attempt - 1));
-    }
-
-    try {
-      const stream = await client.chat.completions.create({
-        model: modelName,
-        messages: [{ role: 'user', content: prompt }],
-        stream: true,
-        ...(temperature !== undefined && { temperature }),
-        ...(maxTokens !== undefined && { max_tokens: maxTokens }),
-      });
-
-      let fullText = '';
-      for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta?.content ?? '';
-        if (delta) {
-          process.stdout.write(delta);
-          fullText += delta;
-        }
-      }
-      // Ensure trailing newline on stdout
-      if (fullText && !fullText.endsWith('\n')) {
-        process.stdout.write('\n');
-      }
-      return fullText;
-    } catch (error) {
-      lastError = error;
-      if (!isRetryable(error) || attempt === MAX_RETRIES) {
-        break;
-      }
-    }
-  }
-
-  const message =
-    lastError instanceof Error ? lastError.message : String(lastError);
-  throw new ExecutorError(`LLM API streaming call failed after ${MAX_RETRIES} retries: ${message}`, lastError);
-}
+import { resolveApiKey } from './api-key-resolver.js';
+import { createAdapter } from './adapters/types.js';
 
 /**
  * Formats the LLM output according to the requested format.
@@ -164,7 +43,7 @@ async function writeOutput(
     }
     await writeFile(path, content, 'utf-8');
   }
-  // stdout streaming is handled in callLLMStreaming; buffered stdout written by caller
+  // stdout streaming is handled by the adapter's onChunk callback; buffered stdout written by caller
 }
 
 /**
@@ -180,21 +59,12 @@ export async function execute(
   command: ValidatedCommand,
   variables: Record<string, string>,
 ): Promise<ExecutionResult> {
-  let client: OpenAI;
-  try {
-    client = createClient();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { exitCode: 1, output: message };
-  }
-
   const { output_spec } = command;
-  // Stream raw chunks to stdout only when target is stdout AND format doesn't require
-  // post-processing. json must be buffered first so formatOutput() can parse the full text.
   const useStreaming = output_spec.target === 'stdout' && output_spec.format !== 'json';
 
-  // Mutable copy so we can accumulate step outputs
   const vars: Record<string, string> = { ...variables };
+  // Cache adapters by provider to avoid re-creating clients
+  const adapterCache = new Map<ProviderName, ReturnType<typeof createAdapter>>();
 
   try {
     const orderedSteps = orderSteps(command);
@@ -203,19 +73,38 @@ export async function execute(
     for (let i = 0; i < orderedSteps.length; i++) {
       const step = orderedSteps[i]!;
       const rendered = renderStep(step, vars);
-      const { name: modelName, temperature, max_tokens } = rendered.model;
+      const { provider = 'openai', temperature, max_tokens } = rendered.model;
 
-      // Only stream the final step to stdout; intermediate steps must be buffered
-      // so their output doesn't appear in the terminal before the pipeline is done.
+      // Resolve adapter (with cache)
+      let adapter = adapterCache.get(provider);
+      if (!adapter) {
+        let apiKey: string;
+        try {
+          apiKey = resolveApiKey(provider);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          return { exitCode: 1, output: message };
+        }
+        adapter = createAdapter(provider, apiKey);
+        adapterCache.set(provider, adapter);
+      }
+
       const isFinalStep = i === orderedSteps.length - 1;
       let rawOutput: string;
       if (useStreaming && isFinalStep) {
-        rawOutput = await callLLMStreaming(client, rendered.prompt, modelName, temperature, max_tokens);
+        rawOutput = await adapter.callStreaming(
+          rendered.prompt,
+          rendered.model,
+          (chunk) => process.stdout.write(chunk),
+        );
+        // Ensure trailing newline on stdout
+        if (rawOutput && !rawOutput.endsWith('\n')) {
+          process.stdout.write('\n');
+        }
       } else {
-        rawOutput = await callLLM(client, rendered.prompt, modelName, temperature, max_tokens);
+        rawOutput = await adapter.call(rendered.prompt, rendered.model);
       }
 
-      // Accumulate for inter-step references
       vars[`steps.${step.id}.output`] = rawOutput;
       lastOutput = rawOutput;
     }
@@ -225,7 +114,6 @@ export async function execute(
     if (output_spec.target === 'file') {
       await writeOutput(formatted, output_spec.target, output_spec.path);
     } else if (!useStreaming) {
-      // stdout + json: streaming was skipped, write the formatted output now
       process.stdout.write(formatted);
       if (!formatted.endsWith('\n')) {
         process.stdout.write('\n');

@@ -16,7 +16,7 @@ describe('ValidatedCommandSchema — normalization', () => {
       prompt: 'Hello {{input}}',
       model: 'gpt-4o',
     });
-    expect(result.steps[0].model).toEqual({ name: 'gpt-4o' });
+    expect(result.steps[0].model).toEqual({ name: 'gpt-4o', provider: 'openai' });
   });
 
   it('promotes standalone prompt to steps[0]', () => {
@@ -37,6 +37,7 @@ describe('ValidatedCommandSchema — normalization', () => {
     });
     expect(result.steps[0].model).toEqual({
       name: 'gpt-4o-mini',
+      provider: 'openai',
       temperature: 0.5,
       max_tokens: 512,
     });
@@ -83,8 +84,8 @@ describe('ValidatedCommandSchema — extended config (multi-step)', () => {
     expect(result.steps).toHaveLength(2);
     expect(result.steps[1].depends_on).toEqual(['summarize']);
     // model string normalized in each step
-    expect(result.steps[0].model).toEqual({ name: 'gpt-4o-mini' });
-    expect(result.steps[1].model).toEqual({ name: 'gpt-4o' });
+    expect(result.steps[0].model).toEqual({ name: 'gpt-4o-mini', provider: 'openai' });
+    expect(result.steps[1].model).toEqual({ name: 'gpt-4o', provider: 'openai' });
   });
 
   it('defaults depends_on to [] when not provided in a step', () => {
@@ -170,6 +171,61 @@ describe('ValidatedCommandSchema — validation errors', () => {
         steps: [{ prompt: 'No id here', model: 'gpt-4o' }],
       }),
     ).toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Provider resolution tests
+// ---------------------------------------------------------------------------
+
+describe('ValidatedCommandSchema — provider resolution', () => {
+  it('sets provider to openai when explicitly specified', () => {
+    const result = ValidatedCommandSchema.parse({
+      prompt: 'Hello',
+      model: { name: 'gpt-4o', provider: 'openai' },
+    });
+    expect(result.steps[0].model.provider).toBe('openai');
+  });
+
+  it('defaults provider to openai when omitted', () => {
+    const result = ValidatedCommandSchema.parse({
+      prompt: 'Hello',
+      model: 'gpt-4o',
+    });
+    expect(result.steps[0].model.provider).toBe('openai');
+  });
+
+  it('propagates top-level model.provider to all steps', () => {
+    const result = ValidatedCommandSchema.parse({
+      model: { name: 'claude-3-5-sonnet', provider: 'anthropic' },
+      steps: [
+        { id: 'step1', prompt: 'First {{input}}', model: 'claude-3-5-sonnet', depends_on: [] },
+        { id: 'step2', prompt: 'Second', model: 'claude-3-5-sonnet', depends_on: ['step1'] },
+      ],
+    });
+    expect(result.steps[0].model.provider).toBe('anthropic');
+    expect(result.steps[1].model.provider).toBe('anthropic');
+  });
+
+  it('step-level provider overrides top-level provider', () => {
+    const result = ValidatedCommandSchema.parse({
+      model: { name: 'claude-3-5-sonnet', provider: 'anthropic' },
+      steps: [
+        { id: 'step1', prompt: 'Use openai', model: { name: 'gpt-4o', provider: 'openai' }, depends_on: [] },
+      ],
+    });
+    expect(result.steps[0].model.provider).toBe('openai');
+  });
+
+  it('each step can have its own model.provider in steps form', () => {
+    const result = ValidatedCommandSchema.parse({
+      steps: [
+        { id: 'step1', prompt: 'Anthropic step', model: { name: 'claude-3-5-sonnet', provider: 'anthropic' }, depends_on: [] },
+        { id: 'step2', prompt: 'Google step', model: { name: 'gemini-pro', provider: 'google' }, depends_on: ['step1'] },
+      ],
+    });
+    expect(result.steps[0].model.provider).toBe('anthropic');
+    expect(result.steps[1].model.provider).toBe('google');
   });
 });
 
