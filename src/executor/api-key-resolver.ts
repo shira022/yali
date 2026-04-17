@@ -9,6 +9,14 @@ const ENV_VAR_MAP: Record<ProviderName, string> = {
   ollama: 'OLLAMA_API_KEY',
 };
 
+/** Human-readable display names for each provider. */
+const PROVIDER_LABELS: Record<ProviderName, string> = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  google: 'Google',
+  ollama: 'Ollama',
+};
+
 /**
  * Resolves the API key for the given provider.
  *
@@ -25,7 +33,7 @@ export function resolveApiKey(provider: ProviderName): string {
     return apiKey;
   }
 
-  const providerLabel = provider.charAt(0).toUpperCase() + provider.slice(1);
+  const providerLabel = PROVIDER_LABELS[provider];
   throw new ExecutorError(
     `${providerLabel} API key is not configured.\n` +
       `Set the ${envVar} environment variable, or run:\n` +

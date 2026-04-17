@@ -226,6 +226,8 @@ cat input.txt | yali run translate.yaml | jq '.result'
 ## Appendix: Internal Type Definitions (Pseudocode)
 
 ```
+ProviderName = 'openai' | 'anthropic' | 'google' | 'ollama'
+
 ValidatedCommand {
   name?:        string
   version?:     string
@@ -244,6 +246,7 @@ Step {
 
 ModelSpec {
   name:         string
+  provider?:    ProviderName    # defaults to 'openai' when omitted; resolved by the Parser
   temperature?: float
   max_tokens?:  int
 }
