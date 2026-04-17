@@ -80,6 +80,14 @@ describe('handleConfigCommand get', () => {
     ).rejects.toThrow('process.exit called');
     exitMock.mockRestore();
   });
+
+  it('exits with code 1 if key argument is missing', async () => {
+    const exitMock = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit called');
+    });
+    await expect(handleConfigCommand(['get'], configPath)).rejects.toThrow('process.exit called');
+    exitMock.mockRestore();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -134,6 +142,14 @@ describe('handleConfigCommand unset', () => {
     await expect(
       handleConfigCommand(['unset', 'openai.api_key'], configPath),
     ).resolves.toBeUndefined();
+  });
+
+  it('exits with code 1 if key argument is missing', async () => {
+    const exitMock = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit called');
+    });
+    await expect(handleConfigCommand(['unset'], configPath)).rejects.toThrow('process.exit called');
+    exitMock.mockRestore();
   });
 });
 
