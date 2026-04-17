@@ -111,6 +111,9 @@ describe('handleConfigCommand list', () => {
     const joined = output.join('');
     expect(joined).toContain('openai.api_key');
     expect(joined).toContain('anthropic.api_key');
+    expect(joined).not.toContain('sk-abcdefgh12345678');
+    expect(joined).not.toContain('ant-abcdefgh12345678');
+    expect(joined).toContain('***');
     vi.restoreAllMocks();
   });
 });

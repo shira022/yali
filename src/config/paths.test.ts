@@ -11,22 +11,19 @@ afterEach(() => {
 });
 
 describe('getConfigPath()', () => {
-  it('returns XDG_CONFIG_HOME-based path when XDG_CONFIG_HOME is set', () => {
-    if (process.platform === 'win32') return; // skip on Windows
+  it.skipIf(process.platform === 'win32')('returns XDG_CONFIG_HOME-based path when XDG_CONFIG_HOME is set', () => {
     process.env['XDG_CONFIG_HOME'] = '/custom/config';
     const path = getConfigPath();
     expect(path).toBe('/custom/config/yali/config.yaml');
   });
 
-  it('returns ~/.config/yali/config.yaml when XDG_CONFIG_HOME is unset (Linux/macOS)', () => {
-    if (process.platform === 'win32') return; // skip on Windows
+  it.skipIf(process.platform === 'win32')('returns ~/.config/yali/config.yaml when XDG_CONFIG_HOME is unset (Linux/macOS)', () => {
     delete process.env['XDG_CONFIG_HOME'];
     const path = getConfigPath();
     expect(path).toBe(join(homedir(), '.config', 'yali', 'config.yaml'));
   });
 
-  it('returns %APPDATA%/yali/config.yaml on Windows', () => {
-    if (process.platform !== 'win32') return; // only run on Windows
+  it.skipIf(process.platform !== 'win32')('returns %APPDATA%/yali/config.yaml on Windows', () => {
     process.env['APPDATA'] = 'C:\\Users\\test\\AppData\\Roaming';
     const path = getConfigPath();
     expect(path).toBe('C:\\Users\\test\\AppData\\Roaming\\yali\\config.yaml');
