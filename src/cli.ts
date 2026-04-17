@@ -5,6 +5,7 @@ import { orderSteps, renderStep } from './renderer/index.js';
 import { execute } from './executor/index.js';
 import { resolveInput, InputResolverError } from './cli/input-resolver.js';
 import { formatDryRun } from './cli/dry-run-formatter.js';
+import { handleConfigCommand } from './config/manager.js';
 
 function printUsage(stream: NodeJS.WriteStream = process.stdout): void {
   stream.write(
@@ -24,6 +25,13 @@ function printUsage(stream: NodeJS.WriteStream = process.stdout): void {
 }
 
 export async function main(): Promise<void> {
+  // Handle `yali config` before generic arg parsing (config has its own arg structure)
+  const rawArgs = process.argv.slice(2);
+  if (rawArgs[0] === 'config') {
+    await handleConfigCommand(rawArgs.slice(1));
+    process.exit(0);
+  }
+
   const { values, positionals } = parseArgs({
     args: process.argv.slice(2),
     options: {

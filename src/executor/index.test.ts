@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ValidatedCommand } from '../types/index.js';
+import { ExecutorError } from './errors.js';
 
 // ---------------------------------------------------------------------------
 // Mock the openai module before importing the executor
@@ -30,6 +31,11 @@ vi.mock('openai', () => {
   return { default: OpenAI, __mockCreate: mockCreate };
 });
 
+// Mock api-key-resolver so tests don't depend on config file existence
+vi.mock('./api-key-resolver.js', () => ({
+  resolveApiKey: vi.fn().mockReturnValue('test-key'),
+}));
+
 // ---------------------------------------------------------------------------
 // Helper: build a minimal ValidatedCommand
 // ---------------------------------------------------------------------------
@@ -57,7 +63,6 @@ describe('execute()', () => {
 
   beforeEach(async () => {
     vi.resetModules();
-    process.env['OPENAI_API_KEY'] = 'test-key';
 
     // Re-import after reset to pick up the mock
     const openaiModule = await import('openai') as unknown as { __mockCreate: ReturnType<typeof vi.fn> };
@@ -66,7 +71,6 @@ describe('execute()', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
-    delete process.env['OPENAI_API_KEY'];
   });
 
   // Helper: makes mockCreate return a non-streaming response
@@ -89,8 +93,11 @@ describe('execute()', () => {
   // ---------------------------------------------------------------------------
   // Missing API key
   // ---------------------------------------------------------------------------
-  it('returns exitCode 1 when OPENAI_API_KEY is missing', async () => {
-    delete process.env['OPENAI_API_KEY'];
+  it('returns exitCode 1 when API key is not configured', async () => {
+    const { resolveApiKey } = await import('./api-key-resolver.js') as { resolveApiKey: ReturnType<typeof vi.fn> };
+    resolveApiKey.mockImplementationOnce(() => {
+      throw new ExecutorError('OpenAI API key is not configured.\nRun: yali config set openai.api_key <YOUR_API_KEY>');
+    });
     const { execute } = await import('./index.js');
     const result = await execute(makeCommand(), { input: 'world' });
     expect(result.exitCode).toBe(1);
