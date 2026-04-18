@@ -200,6 +200,7 @@ cat input.txt | yali run translate.yaml | jq '.result'
 **"The only layer that performs real I/O."**
 
 - Initialize and call the LLM API client (including retries)
+- **Resolve API keys via `src/config/` module** (config file only; environment variables are not consulted)
 - Handle streaming responses
 - Manage rate limits and errors
 - Dispatch multi-step steps sequentially or in parallel
@@ -207,6 +208,68 @@ cat input.txt | yali run translate.yaml | jq '.result'
 - **Returns: `ExecutionResult` (exit code and output content)**
 
 > **Invariant:** Changes to LLM APIs or adding MCP support are contained within the Executor (or its sub-adapters). Parser and Renderer remain unchanged.
+
+---
+
+## 4. Configuration Management
+
+### Overview
+
+`yali config` manages API keys for LLM providers in an OS-native config file. This eliminates the need for environment variables and centralizes key management.
+
+```bash
+yali config set openai.api_key sk-...      # Store a key
+yali config get openai.api_key             # Show masked key (sk-***...xxxx)
+yali config list                           # List all keys (masked)
+yali config unset openai.api_key           # Remove a key
+```
+
+### Config File Location
+
+| OS | Path |
+|---|---|
+| Linux / macOS | `$XDG_CONFIG_HOME/yali/config.yaml` (defaults to `~/.config/yali/config.yaml`) |
+| Windows | `%APPDATA%\yali\config.yaml` |
+
+Path resolution is implemented in `src/config/paths.ts` using `os.homedir()` with platform branching — no external dependencies.
+
+### Config File Format
+
+```yaml
+openai:
+  api_key: sk-...
+anthropic:
+  api_key: sk-ant-...
+google:
+  api_key: AIza...
+ollama:
+  base_url: http://localhost:11434
+```
+
+### Security
+
+- On Unix, the config file is protected with `chmod 600` (owner read/write only) — the same convention as SSH private keys (`~/.ssh/id_rsa`).
+- All `get` and `list` output masks API keys (`sk-***...xxxx`). Plain-text keys are never displayed.
+- The config file lives outside the repository (`~/.config/` or `%APPDATA%`), so it cannot be accidentally committed to git.
+
+### API Key Resolution
+
+API keys are resolved **from the config file only**. Environment variables (`OPENAI_API_KEY`, etc.) are not consulted.
+
+- Key found in config file → used as-is
+- Key absent or config file missing → `ExecutorError` with `yali config set <provider>.api_key` guidance
+
+This is implemented in `src/executor/api-key-resolver.ts`, which reads from `src/config/store.ts`.
+
+### Module Structure
+
+```
+src/config/
+  schema.ts    — zod schema for YaliConfig type
+  paths.ts     — OS-native config file path resolution
+  store.ts     — readConfig / writeConfig / getNestedValue / setNestedValue / unsetNestedValue
+  manager.ts   — handleConfigCommand: routes set/get/list/unset subcommands
+```
 
 ---
 
@@ -220,6 +283,7 @@ cat input.txt | yali run translate.yaml | jq '.result'
 | New input source (HTTP, etc.) | Input Resolver | Parser, Renderer, Executor |
 | YAML → TOML support | Parser only | All other layers |
 | `--dry-run` feature | CLI Layer → stops at Renderer | Executor |
+| New LLM provider / API key | `src/config/schema.ts`, Executor adapter | Parser, Renderer, CLI Layer |
 
 ---
 

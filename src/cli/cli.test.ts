@@ -20,12 +20,16 @@ vi.mock('./input-resolver.js', () => ({
 vi.mock('./dry-run-formatter.js', () => ({
   formatDryRun: vi.fn(),
 }));
+vi.mock('../config/manager.js', () => ({
+  handleConfigCommand: vi.fn(),
+}));
 
 import { parseCommand } from '../parser/index.js';
 import { execute } from '../executor/index.js';
 import { orderSteps, renderStep } from '../renderer/index.js';
 import { resolveInput } from './input-resolver.js';
 import { formatDryRun } from './dry-run-formatter.js';
+import { handleConfigCommand } from '../config/manager.js';
 import { main } from '../cli.js';
 
 const mockedParseCommand = vi.mocked(parseCommand);
@@ -34,6 +38,7 @@ const mockedOrderSteps = vi.mocked(orderSteps);
 const mockedRenderStep = vi.mocked(renderStep);
 const mockedResolveInput = vi.mocked(resolveInput);
 const mockedFormatDryRun = vi.mocked(formatDryRun);
+const mockedHandleConfigCommand = vi.mocked(handleConfigCommand);
 
 const MOCK_COMMAND = {
   steps: [{ id: 'step1', prompt: '{{input}}', model: { name: 'gpt-4o' }, depends_on: [] }],
@@ -74,6 +79,7 @@ describe('CLI Layer', () => {
     mockedOrderSteps.mockReturnValue(MOCK_COMMAND.steps);
     mockedRenderStep.mockReturnValue(MOCK_RENDERED_STEP);
     mockedFormatDryRun.mockReturnValue('=== Step: step1 ===\nHello, world');
+    mockedHandleConfigCommand.mockResolvedValue(undefined);
 
     // Simulate TTY (no piped stdin) by default
     Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true });
@@ -147,6 +153,13 @@ describe('CLI Layer', () => {
       expect.anything(),
       expect.objectContaining({ hasStdin: true }),
     );
+  });
+
+  it('routes "yali config" to handleConfigCommand and exits 0', async () => {
+    process.argv = ['node', 'cli.js', 'config', 'list'];
+    await expect(main()).rejects.toThrow('process.exit(0)');
+    expect(mockedHandleConfigCommand).toHaveBeenCalledWith(['list']);
+    expect(exitSpy).toHaveBeenCalledWith(0);
   });
 
   it('exits 0 and prints usage when --help is passed', async () => {
