@@ -73,24 +73,45 @@ export class GeminiAdapter implements LLMAdapter {
     onChunk: (chunk: string) => void,
   ): Promise<string> {
     const { name: modelName, temperature, max_tokens } = model;
+    let lastError: unknown;
 
-    const genModel = this.client.getGenerativeModel({
-      model: modelName,
-      generationConfig: {
-        ...(temperature !== undefined && { temperature }),
-        ...(max_tokens !== undefined && { maxOutputTokens: max_tokens }),
-      },
-    });
-    const result = await genModel.generateContentStream(prompt);
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        await sleep(BASE_DELAY_MS * 2 ** (attempt - 1));
+      }
 
-    let fullText = '';
-    for await (const chunk of result.stream) {
-      const text = chunk.text();
-      if (text) {
-        onChunk(text);
-        fullText += text;
+      try {
+        const genModel = this.client.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            ...(temperature !== undefined && { temperature }),
+            ...(max_tokens !== undefined && { maxOutputTokens: max_tokens }),
+          },
+        });
+        const result = await genModel.generateContentStream(prompt);
+
+        let fullText = '';
+        for await (const chunk of result.stream) {
+          const text = chunk.text();
+          if (text) {
+            onChunk(text);
+            fullText += text;
+          }
+        }
+        return fullText;
+      } catch (error) {
+        lastError = error;
+        if (!isRetryable(error) || attempt === MAX_RETRIES) {
+          break;
+        }
       }
     }
-    return fullText;
+
+    const message =
+      lastError instanceof Error ? lastError.message : String(lastError);
+    throw new ExecutorError(
+      `LLM API streaming call failed after ${MAX_RETRIES} retries: ${message}`,
+      lastError,
+    );
   }
 }

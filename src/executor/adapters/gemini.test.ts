@@ -160,4 +160,68 @@ describe('GeminiAdapter', () => {
     const result = await adapter.callStreaming('prompt', { name: 'gemini-pro' }, () => {});
     expect(result).toBe('Hello world!');
   });
+
+  // call() — 500 でリトライし成功する
+  it('call() retries on 500 (server error) and succeeds', async () => {
+    vi.useFakeTimers();
+    const serverError = Object.assign(new Error('internal server error'), { status: 500 });
+    mockGenerateContent
+      .mockRejectedValueOnce(serverError)
+      .mockResolvedValueOnce({ response: { text: () => 'recovered' } });
+
+    const adapter = new GeminiAdapter('test-key');
+    const promise = adapter.call('prompt', { name: 'gemini-1.5-flash' });
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result).toBe('recovered');
+    expect(mockGenerateContent).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  // callStreaming() — 429 でリトライし成功する
+  it('callStreaming() retries on 429 and succeeds', async () => {
+    vi.useFakeTimers();
+    const rateLimitError = Object.assign(new Error('rate limit'), { status: 429 });
+
+    async function* successStream() {
+      yield { text: () => 'streamed ok' };
+    }
+
+    mockGenerateContentStream
+      .mockRejectedValueOnce(rateLimitError)
+      .mockResolvedValueOnce({ stream: successStream() });
+
+    const adapter = new GeminiAdapter('test-key');
+    const chunks: string[] = [];
+    const promise = adapter.callStreaming('prompt', { name: 'gemini-1.5-flash' }, (c) => chunks.push(c));
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result).toBe('streamed ok');
+    expect(chunks).toEqual(['streamed ok']);
+    expect(mockGenerateContentStream).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  // callStreaming() — MAX_RETRIES 回失敗後 ExecutorError をスロー
+  it('callStreaming() throws ExecutorError after exhausting all retries', async () => {
+    vi.useFakeTimers();
+    const rateLimitError = Object.assign(new Error('rate limit'), { status: 429 });
+    mockGenerateContentStream.mockRejectedValue(rateLimitError);
+
+    const adapter = new GeminiAdapter('test-key');
+    const { ExecutorError } = await import('../errors.js');
+
+    let caughtError: unknown;
+    const settled = adapter.callStreaming('prompt', { name: 'gemini-1.5-flash' }, () => {}).catch((e) => {
+      caughtError = e;
+    });
+    await vi.runAllTimersAsync();
+    await settled;
+
+    expect(caughtError).toBeInstanceOf(ExecutorError);
+    expect(mockGenerateContentStream).toHaveBeenCalledTimes(4); // 1 initial + 3 retries
+    vi.useRealTimers();
+  });
 });
