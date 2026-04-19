@@ -266,10 +266,9 @@ This is implemented in `src/executor/api-key-resolver.ts`, which reads from `src
 Ollama does not use an API key. Instead, it requires a `base_url` pointing to the Ollama server. The base URL is resolved in the following priority order:
 
 1. **Config file** — `ollama.base_url` in the yali config file
-2. **Environment variable** — `OLLAMA_BASE_URL` (useful for CI, Docker, and headless environments where editing the config file is not practical)
-3. **Default** — `http://localhost:11434/v1`
+2. **Default** — `http://localhost:11434/v1`
 
-> **Note:** `OLLAMA_BASE_URL` is the only environment variable consulted by yali. All other provider credentials are resolved exclusively from the config file.
+> **Note:** Unlike other LLM providers, Ollama uses a `base_url` instead of an API key. Both are resolved exclusively from the config file — no environment variables are consulted.
 
 ### Module Structure
 
