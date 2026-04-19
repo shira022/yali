@@ -4,6 +4,25 @@ import { orderSteps, renderStep } from '../renderer/index.js';
 import { ExecutorError } from './errors.js';
 import { resolveApiKey } from './api-key-resolver.js';
 import { createAdapter } from './adapters/types.js';
+import { DEFAULT_OLLAMA_BASE_URL } from './adapters/ollama.js';
+import { getConfigPath } from '../config/paths.js';
+import { readConfig, getNestedValue } from '../config/store.js';
+
+/**
+ * Resolves the Ollama base URL from yali config, env var, or default.
+ */
+function resolveOllamaBaseUrl(): string {
+  try {
+    const config = readConfig(getConfigPath());
+    const baseUrl = getNestedValue(config, 'ollama.base_url');
+    if (baseUrl) return baseUrl;
+  } catch { /* ignore */ }
+
+  const envUrl = process.env['OLLAMA_BASE_URL'];
+  if (envUrl) return envUrl;
+
+  return DEFAULT_OLLAMA_BASE_URL;
+}
 
 /**
  * Formats the LLM output according to the requested format.
@@ -78,14 +97,18 @@ export async function execute(
       // Resolve adapter (with cache)
       let adapter = adapterCache.get(provider);
       if (!adapter) {
-        let apiKey: string;
-        try {
-          apiKey = resolveApiKey(provider);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          return { exitCode: 1, output: message };
+        let apiKeyOrBaseUrl: string;
+        if (provider === 'ollama') {
+          apiKeyOrBaseUrl = resolveOllamaBaseUrl();
+        } else {
+          try {
+            apiKeyOrBaseUrl = resolveApiKey(provider);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            return { exitCode: 1, output: message };
+          }
         }
-        adapter = createAdapter(provider, apiKey);
+        adapter = createAdapter(provider, apiKeyOrBaseUrl);
         adapterCache.set(provider, adapter);
       }
 

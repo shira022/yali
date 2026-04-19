@@ -18,6 +18,15 @@ vi.mock('./anthropic.js', () => ({
   },
 }));
 
+vi.mock('./ollama.js', () => ({
+  OllamaAdapter: class MockOllamaAdapter {
+    constructor(public readonly baseUrl: string) {}
+    call = vi.fn();
+    callStreaming = vi.fn();
+  },
+  DEFAULT_OLLAMA_BASE_URL: 'http://localhost:11434/v1',
+}));
+
 describe('createAdapter()', () => {
   it("returns an adapter with call() and callStreaming() for 'openai'", async () => {
     const { createAdapter } = await import('./types.js');
@@ -33,16 +42,17 @@ describe('createAdapter()', () => {
     expect(typeof adapter.callStreaming).toBe('function');
   });
 
+  it("returns an adapter with call() and callStreaming() for 'ollama'", async () => {
+    const { createAdapter } = await import('./types.js');
+    const adapter = createAdapter('ollama', 'http://localhost:11434/v1');
+    expect(typeof adapter.call).toBe('function');
+    expect(typeof adapter.callStreaming).toBe('function');
+  });
+
   it("throws ExecutorError for 'google' (not yet supported)", async () => {
     const { createAdapter } = await import('./types.js');
     expect(() => createAdapter('google', 'key')).toThrow(ExecutorError);
     expect(() => createAdapter('google', 'key')).toThrow(/not yet supported/);
-  });
-
-  it("throws ExecutorError for 'ollama' (not yet supported)", async () => {
-    const { createAdapter } = await import('./types.js');
-    expect(() => createAdapter('ollama', 'key')).toThrow(ExecutorError);
-    expect(() => createAdapter('ollama', 'key')).toThrow(/not yet supported/);
   });
 
   it('error message for unsupported provider names the provider', async () => {
