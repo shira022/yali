@@ -172,4 +172,52 @@ describe('AnthropicAdapter', () => {
     const result = await adapter.callStreaming('prompt', { name: 'claude-3-5-haiku-20241022' }, () => {});
     expect(result).toBe('Hello Claude!');
   });
+
+  // callStreaming() — 429 でリトライし成功する
+  it('callStreaming() retries on 429 and succeeds', async () => {
+    vi.useFakeTimers();
+    const anthropicModule = (await import('@anthropic-ai/sdk')) as unknown as {
+      default: { APIError: new (msg: string, status: number) => Error };
+    };
+    const APIError = anthropicModule.default.APIError;
+
+    mockCreate
+      .mockRejectedValueOnce(new APIError('rate limit', 429))
+      .mockResolvedValueOnce(makeStreamEvents(['retry ok']));
+
+    const adapter = new AnthropicAdapter('test-key');
+    const chunks: string[] = [];
+    const promise = adapter.callStreaming('prompt', { name: 'claude-3-5-sonnet-20241022' }, (c) => chunks.push(c));
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result).toBe('retry ok');
+    expect(chunks).toEqual(['retry ok']);
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  // callStreaming() — MAX_RETRIES 回失敗後 ExecutorError をスロー
+  it('callStreaming() throws ExecutorError after exhausting all retries', async () => {
+    vi.useFakeTimers();
+    const anthropicModule = (await import('@anthropic-ai/sdk')) as unknown as {
+      default: { APIError: new (msg: string, status: number) => Error };
+    };
+    const APIError = anthropicModule.default.APIError;
+
+    mockCreate.mockRejectedValue(new APIError('rate limit', 429));
+    const adapter = new AnthropicAdapter('test-key');
+    const { ExecutorError } = await import('../errors.js');
+
+    let caughtError: unknown;
+    const settled = adapter.callStreaming('prompt', { name: 'claude-3-5-sonnet-20241022' }, () => {}).catch((e) => {
+      caughtError = e;
+    });
+    await vi.runAllTimersAsync();
+    await settled;
+
+    expect(caughtError).toBeInstanceOf(ExecutorError);
+    expect(mockCreate).toHaveBeenCalledTimes(4); // 1 initial + 3 retries
+    vi.useRealTimers();
+  });
 });
