@@ -1,5 +1,6 @@
 import type { ModelSpec, ProviderName } from '../../types/index.js';
 import { ExecutorError } from '../errors.js';
+import { AnthropicAdapter } from './anthropic.js';
 import { OpenAIAdapter } from './openai.js';
 
 /**
@@ -30,10 +31,11 @@ export function createAdapter(provider: ProviderName, apiKey: string): LLMAdapte
     case 'openai':
       return new OpenAIAdapter(apiKey);
     case 'anthropic':
+      return new AnthropicAdapter(apiKey);
     case 'google':
     case 'ollama':
       throw new ExecutorError(
-        `Provider '${provider}' is not yet supported. Only 'openai' is currently available.`,
+        `Provider '${provider}' is not yet supported. Only 'openai' and 'anthropic' are currently available.`,
       );
     default: {
       const _exhaustive: never = provider;
