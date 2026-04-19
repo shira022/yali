@@ -9,7 +9,7 @@ import { getConfigPath } from '../config/paths.js';
 import { readConfig, getNestedValue } from '../config/store.js';
 
 /**
- * Resolves the Ollama base URL from yali config, env var, or default.
+ * Resolves the Ollama base URL from yali config or default.
  */
 export function resolveOllamaBaseUrl(): string {
   try {
@@ -17,9 +17,6 @@ export function resolveOllamaBaseUrl(): string {
     const baseUrl = getNestedValue(config, 'ollama.base_url');
     if (baseUrl) return baseUrl;
   } catch { /* ignore */ }
-
-  const envUrl = process.env['OLLAMA_BASE_URL'];
-  if (envUrl) return envUrl;
 
   return DEFAULT_OLLAMA_BASE_URL;
 }
