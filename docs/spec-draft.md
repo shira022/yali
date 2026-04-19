@@ -243,7 +243,7 @@ anthropic:
 google:
   api_key: AIza...
 ollama:
-  base_url: http://localhost:11434
+  base_url: http://localhost:11434/v1
 ```
 
 ### Security

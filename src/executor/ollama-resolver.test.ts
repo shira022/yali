@@ -66,4 +66,11 @@ describe('resolveOllamaBaseUrl', () => {
     const { resolveOllamaBaseUrl } = await import('./index.js');
     expect(resolveOllamaBaseUrl()).toBe('http://config-host:11434/v1');
   });
+
+  it('returns config value over env var when both are set', async () => {
+    process.env['OLLAMA_BASE_URL'] = 'http://env-host:11434/v1';
+    mockGetNestedValue.mockReturnValue('http://config-host:11434/v1');
+    const { resolveOllamaBaseUrl } = await import('./index.js');
+    expect(resolveOllamaBaseUrl()).toBe('http://config-host:11434/v1');
+  });
 });
