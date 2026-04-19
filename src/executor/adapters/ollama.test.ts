@@ -203,4 +203,91 @@ describe('OllamaAdapter', () => {
     const result = await adapter.callStreaming('prompt', { name: 'llama3' }, () => {});
     expect(result).toBe('Hello world!');
   });
+
+  it('callStreaming() throws ExecutorError immediately on ECONNREFUSED (no retry)', async () => {
+    const connRefused = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+    mockCreate.mockRejectedValue(connRefused);
+    const adapter = new OllamaAdapter();
+    const { ExecutorError } = await import('../errors.js');
+
+    await expect(
+      adapter.callStreaming('prompt', { name: 'llama3.2' }, () => {}),
+    ).rejects.toBeInstanceOf(ExecutorError);
+    expect(mockCreate).toHaveBeenCalledTimes(1); // no retry
+  });
+
+  it('callStreaming() ECONNREFUSED error message mentions ollama serve', async () => {
+    const connRefused = Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+    mockCreate.mockRejectedValue(connRefused);
+    const adapter = new OllamaAdapter();
+
+    await expect(
+      adapter.callStreaming('prompt', { name: 'llama3.2' }, () => {}),
+    ).rejects.toThrow(/ollama serve/i);
+  });
+
+  it('callStreaming() retries on 429 and succeeds', async () => {
+    vi.useFakeTimers();
+    const openaiModule = (await import('openai')) as unknown as {
+      default: { APIError: new (msg: string, status: number) => Error };
+    };
+    const APIError = openaiModule.default.APIError;
+
+    async function* successStream() {
+      yield { choices: [{ delta: { content: 'retry ok' } }] };
+    }
+    mockCreate
+      .mockRejectedValueOnce(new APIError('rate limit', 429))
+      .mockResolvedValueOnce(successStream());
+
+    const adapter = new OllamaAdapter();
+    const chunks: string[] = [];
+    const promise = adapter.callStreaming('prompt', { name: 'llama3.2' }, (c) => chunks.push(c));
+    await vi.runAllTimersAsync();
+    const result = await promise;
+
+    expect(result).toBe('retry ok');
+    expect(chunks).toEqual(['retry ok']);
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it('callStreaming() throws ExecutorError after exhausting all retries', async () => {
+    vi.useFakeTimers();
+    const openaiModule = (await import('openai')) as unknown as {
+      default: { APIError: new (msg: string, status: number) => Error };
+    };
+    const APIError = openaiModule.default.APIError;
+
+    mockCreate.mockRejectedValue(new APIError('rate limit', 429));
+    const adapter = new OllamaAdapter();
+    const { ExecutorError } = await import('../errors.js');
+
+    let caughtError: unknown;
+    const settled = adapter.callStreaming('prompt', { name: 'llama3.2' }, () => {}).catch((e) => {
+      caughtError = e;
+    });
+    await vi.runAllTimersAsync();
+    await settled;
+
+    expect(caughtError).toBeInstanceOf(ExecutorError);
+    expect(mockCreate).toHaveBeenCalledTimes(4); // 1 initial + 3 retries
+    vi.useRealTimers();
+  });
+
+  it('callStreaming() does not retry on 400', async () => {
+    const openaiModule = (await import('openai')) as unknown as {
+      default: { APIError: new (msg: string, status: number) => Error };
+    };
+    const APIError = openaiModule.default.APIError;
+
+    mockCreate.mockRejectedValue(new APIError('bad request', 400));
+    const adapter = new OllamaAdapter();
+    const { ExecutorError } = await import('../errors.js');
+
+    await expect(
+      adapter.callStreaming('prompt', { name: 'llama3.2' }, () => {}),
+    ).rejects.toBeInstanceOf(ExecutorError);
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
 });

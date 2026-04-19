@@ -11,7 +11,7 @@ import { readConfig, getNestedValue } from '../config/store.js';
 /**
  * Resolves the Ollama base URL from yali config, env var, or default.
  */
-function resolveOllamaBaseUrl(): string {
+export function resolveOllamaBaseUrl(): string {
   try {
     const config = readConfig(getConfigPath());
     const baseUrl = getNestedValue(config, 'ollama.base_url');
