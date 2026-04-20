@@ -1,4 +1,6 @@
+import type { ProviderName } from '../types/index.js';
 import { getConfigPath } from './paths.js';
+import { validateApiKey } from './api-key-validator.js';
 import {
   readConfig,
   writeConfig,
@@ -7,6 +9,8 @@ import {
   unsetNestedValue,
   ConfigError,
 } from './store.js';
+
+const KNOWN_PROVIDERS = new Set<ProviderName>(['openai', 'anthropic', 'google', 'ollama']);
 
 /** Masks an API key for safe display: sk-***...xxxx */
 export function maskApiKey(value: string): string {
@@ -38,6 +42,19 @@ export async function handleConfigCommand(
         process.stderr.write('Example: yali config set openai.api_key sk-...\n');
         process.exit(1);
       }
+
+      const keyParts = key.split('.');
+      if (keyParts.length === 2 && keyParts[1] === 'api_key') {
+        const provider = keyParts[0] as ProviderName;
+        if (KNOWN_PROVIDERS.has(provider)) {
+          const result = validateApiKey(provider, value);
+          if (!result.valid) {
+            process.stderr.write(`❌ ${result.error}\n`);
+            process.exit(1);
+          }
+        }
+      }
+
       try {
         const config = readConfig(configPath);
         const updated = setNestedValue(config, key, value);

@@ -39,9 +39,9 @@ describe('handleConfigCommand set', () => {
     // Temporarily override getConfigPath via env
     const { readConfig } = await import('./store.js');
     // We test by directly using configPath
-    await handleConfigCommand(['set', 'openai.api_key', 'sk-test'], configPath);
+    await handleConfigCommand(['set', 'openai.api_key', 'sk-abcdefghijklmnopqrst'], configPath);
     const config = readConfig(configPath);
-    expect(config.openai?.api_key).toBe('sk-test');
+    expect(config.openai?.api_key).toBe('sk-abcdefghijklmnopqrst');
   });
 
   it('exits with code 1 if value argument is missing', async () => {
@@ -154,7 +154,7 @@ describe('handleConfigCommand unset', () => {
 });
 
 // ---------------------------------------------------------------------------
-// handleConfigCommand — unknown subcommand
+// handleConfigCommand unknown subcommand
 // ---------------------------------------------------------------------------
 describe('handleConfigCommand unknown subcommand', () => {
   it('exits with code 1 and usage error', async () => {
@@ -165,5 +165,61 @@ describe('handleConfigCommand unknown subcommand', () => {
       handleConfigCommand(['unknown'], configPath),
     ).rejects.toThrow('process.exit called');
     exitMock.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// handleConfigCommand set — API key format validation
+// ---------------------------------------------------------------------------
+describe('handleConfigCommand set — API key format validation', () => {
+  it('exits with code 1 and writes to stderr for invalid OpenAI key (missing sk- prefix)', async () => {
+    const exitMock = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit called');
+    });
+    const stderrOutput: string[] = [];
+    const stderrMock = vi.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
+      stderrOutput.push(String(data));
+      return true;
+    });
+    await expect(
+      handleConfigCommand(['set', 'openai.api_key', 'invalid-key-without-prefix'], configPath),
+    ).rejects.toThrow('process.exit called');
+    expect(stderrOutput.join('')).toContain('❌');
+    exitMock.mockRestore();
+    stderrMock.mockRestore();
+  });
+
+  it('does NOT exit and saves successfully for a valid OpenAI key', async () => {
+    const { readConfig } = await import('./store.js');
+    await handleConfigCommand(['set', 'openai.api_key', 'sk-abcdefghijklmnopqrst'], configPath);
+    const config = readConfig(configPath);
+    expect(config.openai?.api_key).toBe('sk-abcdefghijklmnopqrst');
+  });
+
+  it('exits with code 1 for an invalid Anthropic key', async () => {
+    const exitMock = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit called');
+    });
+    await expect(
+      handleConfigCommand(['set', 'anthropic.api_key', 'invalid-anthropic-key'], configPath),
+    ).rejects.toThrow('process.exit called');
+    exitMock.mockRestore();
+  });
+
+  it('exits with code 1 for an invalid Google key', async () => {
+    const exitMock = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('process.exit called');
+    });
+    await expect(
+      handleConfigCommand(['set', 'google.api_key', 'not-a-google-key'], configPath),
+    ).rejects.toThrow('process.exit called');
+    exitMock.mockRestore();
+  });
+
+  it('does NOT exit for an Ollama arbitrary key (no validation)', async () => {
+    const { readConfig } = await import('./store.js');
+    await handleConfigCommand(['set', 'ollama.api_key', 'any-arbitrary-value'], configPath);
+    const config = readConfig(configPath);
+    expect(config.ollama?.api_key).toBe('any-arbitrary-value');
   });
 });
