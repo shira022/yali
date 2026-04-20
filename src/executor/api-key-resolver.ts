@@ -2,6 +2,7 @@ import type { ProviderName } from '../types/index.js';
 import { ExecutorError } from './errors.js';
 import { getConfigPath } from '../config/paths.js';
 import { readConfig, getNestedValue } from '../config/store.js';
+import { validateApiKey } from '../config/api-key-validator.js';
 
 /** Human-readable display names for each provider. */
 const PROVIDER_LABELS: Record<ProviderName, string> = {
@@ -31,6 +32,10 @@ export function resolveApiKey(provider: ProviderName): string {
   }
 
   if (apiKey) {
+    const validation = validateApiKey(provider, apiKey);
+    if (!validation.valid) {
+      process.stderr.write(`⚠ Warning: ${validation.error}\n`);
+    }
     return apiKey;
   }
 
