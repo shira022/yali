@@ -76,4 +76,33 @@ describe('resolveApiKey()', () => {
   });
 });
 
+describe('resolveApiKey() — format validation warnings', () => {
+  it('returns the key even when format is invalid', () => {
+    writeConfig(configPath, { openai: { api_key: 'invalid-key' } });
+    expect(resolveApiKey('openai')).toBe('invalid-key');
+  });
 
+  it('writes a warning to stderr when the key has an invalid format', () => {
+    writeConfig(configPath, { openai: { api_key: 'invalid-key' } });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      resolveApiKey('openai');
+      const calls = stderrSpy.mock.calls.map((c) => String(c[0]));
+      expect(calls.some((msg) => msg.includes('⚠ Warning:'))).toBe(true);
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+
+  it('does NOT write a warning to stderr when the key has a valid format', () => {
+    writeConfig(configPath, { openai: { api_key: 'sk-validkeyabcdefghijklmno' } });
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      resolveApiKey('openai');
+      const calls = stderrSpy.mock.calls.map((c) => String(c[0]));
+      expect(calls.some((msg) => msg.includes('⚠ Warning:'))).toBe(false);
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+});
