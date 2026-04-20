@@ -7,6 +7,7 @@ import { createAdapter } from './adapters/types.js';
 import { DEFAULT_OLLAMA_BASE_URL } from './adapters/ollama.js';
 import { getConfigPath } from '../config/paths.js';
 import { readConfig, getNestedValue } from '../config/store.js';
+import { validatePromptContent } from '../validator/index.js';
 
 /**
  * Resolves the Ollama base URL from yali config or default.
@@ -110,6 +111,13 @@ export async function execute(
       }
 
       const isFinalStep = i === orderedSteps.length - 1;
+
+      // Validate the fully-rendered prompt before sending to the LLM API
+      const promptValidation = validatePromptContent(rendered.prompt, `step "${step.id}" rendered prompt`);
+      if (!promptValidation.valid) {
+        throw new ExecutorError(promptValidation.error!);
+      }
+
       let rawOutput: string;
       if (useStreaming && isFinalStep) {
         rawOutput = await adapter.callStreaming(

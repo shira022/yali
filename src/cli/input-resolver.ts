@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { ValidatedCommand } from '../types/index.js';
+import { validateInputValue, validateVarKey } from '../validator/index.js';
 
 export class InputResolverError extends Error {
   constructor(message: string) {
@@ -122,7 +123,26 @@ export async function resolveInput(
     }
     const key = pair.slice(0, eqIdx);
     const value = pair.slice(eqIdx + 1);
+
+    const keyResult = validateVarKey(key);
+    if (!keyResult.valid) {
+      throw new InputResolverError(keyResult.error!);
+    }
+
+    const valueResult = validateInputValue(value, `--var ${key}`);
+    if (!valueResult.valid) {
+      throw new InputResolverError(valueResult.error!);
+    }
+
     variables[key] = value;
+  }
+
+  // Validate all resolved primary input values
+  if (input_spec.var in variables) {
+    const primaryResult = validateInputValue(variables[input_spec.var]!, `"${input_spec.var}" input`);
+    if (!primaryResult.valid) {
+      throw new InputResolverError(primaryResult.error!);
+    }
   }
 
   return variables;
