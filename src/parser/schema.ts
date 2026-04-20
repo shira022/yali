@@ -11,6 +11,8 @@ const ModelSpecSchema = z.preprocess(
     provider: z.enum(PROVIDER_VALUES).optional(),
     temperature: z.number().optional(),
     max_tokens: z.number().int().optional(),
+    timeout_ms: z.number().int().positive().optional(),
+    max_retries: z.number().int().min(0).optional(),
   })
 );
 

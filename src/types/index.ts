@@ -11,6 +11,10 @@ export interface ModelSpec {
   provider?: ProviderName;
   temperature?: number;
   max_tokens?: number;
+  /** Maximum time in milliseconds to wait for the API call to complete. Defaults to 60000 (60s). */
+  timeout_ms?: number;
+  /** Maximum number of retries on retryable errors. Defaults to 3. */
+  max_retries?: number;
 }
 
 /**
