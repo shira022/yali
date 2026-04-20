@@ -286,6 +286,51 @@ src/config/
 
 ---
 
+## 5. Input Safety Constraints
+
+All user-supplied string values — CLI arguments (`--input`, `--var` values), YAML `prompt` fields, and inter-step variable values — are validated before being processed or forwarded to the LLM API.
+
+### Disallowed Content
+
+The following are rejected with a hard error (non-zero exit code):
+
+| Constraint | Rejected values | Permitted exceptions |
+|---|---|---|
+| **NUL bytes** | `\0` (U+0000) | — |
+| **ASCII control characters** | U+0001–U+0008, U+000B–U+000C, U+000E–U+001F, U+007F | Tab (`\t`), LF (`\n`), CR (`\r`) |
+| **Maximum length** | Strings longer than **100,000 characters** | — |
+
+Tab, LF, and CR are permitted because they are standard whitespace in multi-line prompts and file content.
+
+### Where Validation Is Applied
+
+| Input path | Validated by | Error type |
+|---|---|---|
+| `--var key=value` key | `src/cli/input-resolver.ts` | `InputResolverError` |
+| `--var key=value` value | `src/cli/input-resolver.ts` | `InputResolverError` |
+| Primary input (stdin, args, file, `--input-file`) | `src/cli/input-resolver.ts` | `InputResolverError` |
+| YAML `prompt` / `steps[N].prompt` fields | `src/parser/schema.ts` (Zod) | `ParseError` |
+| Fully-rendered prompt (post-template-expansion) | `src/renderer/index.ts` (`renderStep`) | `RenderError` |
+
+### Implementation
+
+All validation logic lives in `src/validator/index.ts` as pure, side-effect-free functions:
+
+```typescript
+validateInputValue(value: string, label: string): ValidationResult
+validateVarKey(key: string): ValidationResult
+validatePromptContent(prompt: string, label: string): ValidationResult
+```
+
+Each function returns `{ valid: true }` on success, or `{ valid: false, error: string }` on failure. The `error` string is always in English and includes the `label` parameter to identify the offending input source.
+
+### Design Decisions
+
+- **Hard error, not sanitization**: Invalid input is rejected immediately with an explicit error message. Silent removal of disallowed characters is avoided because it would silently alter user-supplied content, making debugging harder.
+- **No path-traversal restriction on `--input-file`**: `yali` is a local CLI tool. Restricting file paths would break legitimate use cases (e.g., reading files outside the current directory) without providing meaningful security benefit, since the operator already has full filesystem access.
+
+---
+
 ## Change Resilience Summary
 
 | Future Change | Affected Layer(s) | Unaffected Layer(s) |

@@ -497,4 +497,50 @@ describe('execute()', () => {
 
     writeSpy.mockRestore();
   });
+
+  // ---------------------------------------------------------------------------
+  // Validation: invalid rendered prompt caught before LLM call
+  // ---------------------------------------------------------------------------
+  it('returns exitCode 1 when a variable value causes the rendered prompt to contain a NUL byte', async () => {
+    // The prompt template itself is clean; the injected variable value contains a NUL byte.
+    // renderStep expands the template, then validatePromptContent rejects the result.
+    const command = makeCommand({
+      steps: [
+        {
+          id: 'step1',
+          prompt: 'Translate: {{input}}',
+          model: { name: 'gpt-4o-mini' },
+          depends_on: [],
+        },
+      ],
+    });
+
+    const { execute } = await import('./index.js');
+    const result = await execute(command, { input: 'hello\x00world' });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toMatch(/NUL bytes/);
+    // The LLM adapter must NOT have been called
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
+
+  it('returns exitCode 1 when a variable value causes the rendered prompt to contain a forbidden control character', async () => {
+    const command = makeCommand({
+      steps: [
+        {
+          id: 'step1',
+          prompt: 'Summarize: {{input}}',
+          model: { name: 'gpt-4o-mini' },
+          depends_on: [],
+        },
+      ],
+    });
+
+    const { execute } = await import('./index.js');
+    const result = await execute(command, { input: 'data\x1binjected' });
+
+    expect(result.exitCode).toBe(1);
+    expect(result.output).toMatch(/control characters/);
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
 });
