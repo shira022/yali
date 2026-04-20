@@ -371,6 +371,8 @@ ModelSpec {
   provider?:    ProviderName    # defaults to 'openai' when omitted; resolved by the Parser
   temperature?: float
   max_tokens?:  int
+  timeout_ms?:  int             # API call timeout in milliseconds; defaults to 60000 (60s)
+  max_retries?: int             # maximum retry attempts on retryable errors; defaults to 3
 }
 ```
 

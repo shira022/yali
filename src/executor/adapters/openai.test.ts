@@ -174,4 +174,69 @@ describe('OpenAIAdapter', () => {
     const result = await adapter.callStreaming('prompt', { name: 'gpt-4o-mini' }, () => {});
     expect(result).toBe('Hello world!');
   });
+
+  // call() — timeout_ms を超えた場合 ExecutorError をスロー
+  it('call() throws ExecutorError when timeout_ms is exceeded', async () => {
+    vi.useFakeTimers();
+    mockCreate.mockReturnValue(new Promise(() => {})); // never resolves
+
+    const adapter = new OpenAIAdapter('test-key');
+    const { ExecutorError } = await import('../errors.js');
+
+    let caughtError: unknown;
+    const settled = adapter
+      .call('prompt', { name: 'gpt-4o-mini', timeout_ms: 5000 })
+      .catch((e) => { caughtError = e; });
+    await vi.advanceTimersByTimeAsync(5001);
+    await settled;
+
+    expect(caughtError).toBeInstanceOf(ExecutorError);
+    expect((caughtError as Error).message).toContain('timed out');
+  });
+
+  // callStreaming() — timeout_ms を超えた場合 ExecutorError をスロー
+  it('callStreaming() throws ExecutorError when timeout_ms is exceeded', async () => {
+    vi.useFakeTimers();
+    async function* neverGen() {
+      await new Promise<never>(() => {});
+      yield { choices: [{ delta: { content: '' } }] };
+    }
+    mockCreate.mockResolvedValue(neverGen());
+
+    const adapter = new OpenAIAdapter('test-key');
+    const { ExecutorError } = await import('../errors.js');
+
+    let caughtError: unknown;
+    const settled = adapter
+      .callStreaming('prompt', { name: 'gpt-4o-mini', timeout_ms: 5000 }, () => {})
+      .catch((e) => { caughtError = e; });
+    await vi.advanceTimersByTimeAsync(5001);
+    await settled;
+
+    expect(caughtError).toBeInstanceOf(ExecutorError);
+    expect((caughtError as Error).message).toContain('timed out');
+  });
+
+  // call() — max_retries を指定した回数でリトライを止める
+  it('call() respects custom max_retries', async () => {
+    vi.useFakeTimers();
+    const openaiModule = (await import('openai')) as unknown as {
+      default: { APIError: new (msg: string, status: number) => Error };
+    };
+    const APIError = openaiModule.default.APIError;
+
+    mockCreate.mockRejectedValue(new APIError('rate limit', 429));
+    const adapter = new OpenAIAdapter('test-key');
+    const { ExecutorError } = await import('../errors.js');
+
+    let caughtError: unknown;
+    const settled = adapter
+      .call('prompt', { name: 'gpt-4o-mini', max_retries: 1 })
+      .catch((e) => { caughtError = e; });
+    await vi.runAllTimersAsync();
+    await settled;
+
+    expect(caughtError).toBeInstanceOf(ExecutorError);
+    expect(mockCreate).toHaveBeenCalledTimes(2); // 1 initial + 1 retry
+  });
 });

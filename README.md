@@ -79,6 +79,27 @@ Output:
 
 ---
 
+## Cost & Rate Limit Protection
+
+yali includes built-in safeguards to prevent runaway API usage:
+
+- **Timeout** — Each API call is cancelled after **60 seconds** by default. Override per command:
+  ```yaml
+  model:
+    name: gpt-4o
+    timeout_ms: 30000   # 30 seconds
+  ```
+- **Retry limit** — Retryable errors (rate limits, server errors) are retried up to **3 times** with exponential backoff. Override per command:
+  ```yaml
+  model:
+    name: gpt-4o
+    max_retries: 1   # retry at most once
+  ```
+
+> **⚠️ Cost warning:** Even with these defaults, repeated or parallel invocations of `yali run` can accumulate LLM API charges quickly. Monitor your provider usage dashboards and set appropriate limits in your YAML files for long-running workflows.
+
+---
+
 ## Documentation
 
 Full usage guide, YAML schema reference, and advanced examples:
