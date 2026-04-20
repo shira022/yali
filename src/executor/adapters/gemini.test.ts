@@ -286,4 +286,57 @@ describe('GeminiAdapter', () => {
     expect(caughtError).toBeInstanceOf(ExecutorError);
     expect(mockGenerateContent).toHaveBeenCalledTimes(2); // 1 initial + 1 retry
   });
+
+  // callStreaming() — max_retries を指定した回数でリトライを止める
+  it('callStreaming() respects custom max_retries', async () => {
+    vi.useFakeTimers();
+    const rateLimitError = Object.assign(new Error('rate limit'), { status: 429 });
+    mockGenerateContentStream.mockRejectedValue(rateLimitError);
+
+    const adapter = new GeminiAdapter('test-key');
+    const { ExecutorError } = await import('../errors.js');
+
+    let caughtError: unknown;
+    const settled = adapter
+      .callStreaming('prompt', { name: 'gemini-1.5-flash', max_retries: 1 }, () => {})
+      .catch((e) => { caughtError = e; });
+    await vi.runAllTimersAsync();
+    await settled;
+
+    expect(caughtError).toBeInstanceOf(ExecutorError);
+    expect(mockGenerateContentStream).toHaveBeenCalledTimes(2); // 1 initial + 1 retry
+  });
+
+  // call() — max_retries: 0 は即座に失敗（リトライなし）
+  it('call() makes exactly 1 attempt when max_retries is 0', async () => {
+    const rateLimitError = Object.assign(new Error('rate limit'), { status: 429 });
+    mockGenerateContent.mockRejectedValue(rateLimitError);
+
+    const adapter = new GeminiAdapter('test-key');
+    const { ExecutorError } = await import('../errors.js');
+
+    await expect(
+      adapter.call('prompt', { name: 'gemini-1.5-flash', max_retries: 0 }),
+    ).rejects.toBeInstanceOf(ExecutorError);
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1);
+  });
+
+  // call() — タイムアウトはリトライされない（mockGenerateContent は1回だけ呼ばれる）
+  it('call() does not retry when timeout_ms is exceeded', async () => {
+    vi.useFakeTimers();
+    mockGenerateContent.mockReturnValue(new Promise(() => {})); // never resolves
+
+    const adapter = new GeminiAdapter('test-key');
+    const { ExecutorError } = await import('../errors.js');
+
+    let caughtError: unknown;
+    const settled = adapter
+      .call('prompt', { name: 'gemini-1.5-flash', timeout_ms: 5000 })
+      .catch((e) => { caughtError = e; });
+    await vi.advanceTimersByTimeAsync(5001);
+    await settled;
+
+    expect(caughtError).toBeInstanceOf(ExecutorError);
+    expect(mockGenerateContent).toHaveBeenCalledTimes(1); // no retry on timeout
+  });
 });

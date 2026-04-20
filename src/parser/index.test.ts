@@ -43,6 +43,23 @@ describe('ValidatedCommandSchema — normalization', () => {
     });
   });
 
+  it('passes timeout_ms and max_retries through to ValidatedCommand', () => {
+    const result = ValidatedCommandSchema.parse({
+      prompt: 'Hi',
+      model: { name: 'gpt-4o', timeout_ms: 30000, max_retries: 1 },
+    });
+    expect(result.steps[0].model.timeout_ms).toBe(30000);
+    expect(result.steps[0].model.max_retries).toBe(1);
+  });
+
+  it('accepts max_retries: 0 (no retries)', () => {
+    const result = ValidatedCommandSchema.parse({
+      prompt: 'Hi',
+      model: { name: 'gpt-4o', max_retries: 0 },
+    });
+    expect(result.steps[0].model.max_retries).toBe(0);
+  });
+
   it('defaults input_spec to stdin when input key is absent', () => {
     const result = ValidatedCommandSchema.parse({ prompt: 'Hi', model: 'gpt-4o' });
     expect(result.input_spec).toEqual({ from: 'stdin', var: 'input' });
@@ -191,6 +208,38 @@ describe('ValidatedCommandSchema — validation errors', () => {
         steps: [{ id: 's1', prompt: 'Bad\x00byte', model: 'gpt-4o' }],
       }),
     ).toThrow(/NUL bytes/);
+  });
+
+  // timeout_ms validation
+  it('throws when timeout_ms is 0 (not positive)', () => {
+    expect(() =>
+      ValidatedCommandSchema.parse({ prompt: 'Hi', model: { name: 'gpt-4o', timeout_ms: 0 } }),
+    ).toThrow();
+  });
+
+  it('throws when timeout_ms is negative', () => {
+    expect(() =>
+      ValidatedCommandSchema.parse({ prompt: 'Hi', model: { name: 'gpt-4o', timeout_ms: -1 } }),
+    ).toThrow();
+  });
+
+  it('throws when timeout_ms is a float', () => {
+    expect(() =>
+      ValidatedCommandSchema.parse({ prompt: 'Hi', model: { name: 'gpt-4o', timeout_ms: 1.5 } }),
+    ).toThrow();
+  });
+
+  // max_retries validation
+  it('throws when max_retries is negative', () => {
+    expect(() =>
+      ValidatedCommandSchema.parse({ prompt: 'Hi', model: { name: 'gpt-4o', max_retries: -1 } }),
+    ).toThrow();
+  });
+
+  it('throws when max_retries is a float', () => {
+    expect(() =>
+      ValidatedCommandSchema.parse({ prompt: 'Hi', model: { name: 'gpt-4o', max_retries: 1.5 } }),
+    ).toThrow();
   });
 });
 

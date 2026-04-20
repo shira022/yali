@@ -285,4 +285,63 @@ describe('AnthropicAdapter', () => {
     expect(caughtError).toBeInstanceOf(ExecutorError);
     expect(mockCreate).toHaveBeenCalledTimes(2); // 1 initial + 1 retry
   });
+
+  // callStreaming() — max_retries を指定した回数でリトライを止める
+  it('callStreaming() respects custom max_retries', async () => {
+    vi.useFakeTimers();
+    const anthropicModule = (await import('@anthropic-ai/sdk')) as unknown as {
+      default: { APIError: new (msg: string, status: number) => Error };
+    };
+    const APIError = anthropicModule.default.APIError;
+
+    mockCreate.mockRejectedValue(new APIError('rate limit', 429));
+    const adapter = new AnthropicAdapter('test-key');
+    const { ExecutorError } = await import('../errors.js');
+
+    let caughtError: unknown;
+    const settled = adapter
+      .callStreaming('prompt', { name: 'claude-3-5-sonnet-20241022', max_retries: 1 }, () => {})
+      .catch((e) => { caughtError = e; });
+    await vi.runAllTimersAsync();
+    await settled;
+
+    expect(caughtError).toBeInstanceOf(ExecutorError);
+    expect(mockCreate).toHaveBeenCalledTimes(2); // 1 initial + 1 retry
+  });
+
+  // call() — max_retries: 0 は即座に失敗（リトライなし）
+  it('call() makes exactly 1 attempt when max_retries is 0', async () => {
+    const anthropicModule = (await import('@anthropic-ai/sdk')) as unknown as {
+      default: { APIError: new (msg: string, status: number) => Error };
+    };
+    const APIError = anthropicModule.default.APIError;
+
+    mockCreate.mockRejectedValue(new APIError('rate limit', 429));
+    const adapter = new AnthropicAdapter('test-key');
+    const { ExecutorError } = await import('../errors.js');
+
+    await expect(
+      adapter.call('prompt', { name: 'claude-3-5-sonnet-20241022', max_retries: 0 }),
+    ).rejects.toBeInstanceOf(ExecutorError);
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+
+  // call() — タイムアウトはリトライされない（mockCreate は1回だけ呼ばれる）
+  it('call() does not retry when timeout_ms is exceeded', async () => {
+    vi.useFakeTimers();
+    mockCreate.mockReturnValue(new Promise(() => {})); // never resolves
+
+    const adapter = new AnthropicAdapter('test-key');
+    const { ExecutorError } = await import('../errors.js');
+
+    let caughtError: unknown;
+    const settled = adapter
+      .call('prompt', { name: 'claude-3-5-sonnet-20241022', timeout_ms: 5000 })
+      .catch((e) => { caughtError = e; });
+    await vi.advanceTimersByTimeAsync(5001);
+    await settled;
+
+    expect(caughtError).toBeInstanceOf(ExecutorError);
+    expect(mockCreate).toHaveBeenCalledTimes(1); // no retry on timeout
+  });
 });
