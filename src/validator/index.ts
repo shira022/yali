@@ -2,7 +2,7 @@
  * Input validation module for yali.
  *
  * All functions are pure (no side effects, no I/O).
- * Consumed by the CLI Layer (input-resolver), Parser (schema), and Executor layers.
+ * Consumed by the CLI Layer (input-resolver), Parser (schema), and Renderer layers.
  *
  * Validation rules applied to all user-supplied string values:
  * - No NUL bytes (\0)
