@@ -224,6 +224,8 @@ yali config list                           # List all keys (masked)
 yali config unset openai.api_key           # Remove a key
 ```
 
+> **Note on `config set` validation:** When setting an API key for a provider whose format can be validated (OpenAI, Anthropic, Google), `config set` rejects keys that do not match the expected format and exits with code 1. Unrecognised providers (e.g., Ollama) bypass format validation and save the key as-is.
+
 ### Config File Location
 
 | OS | Path |
@@ -257,6 +259,7 @@ ollama:
 API keys are resolved **from the config file only**. Environment variables (`OPENAI_API_KEY`, etc.) are not consulted.
 
 - Key found in config file → used as-is
+- Key found but format is invalid → warning written to stderr, key is still used (non-blocking)
 - Key absent or config file missing → `ExecutorError` with `yali config set <provider>.api_key` guidance
 
 This is implemented in `src/executor/api-key-resolver.ts`, which reads from `src/config/store.ts`.
@@ -274,10 +277,11 @@ Ollama does not use an API key. Instead, it requires a `base_url` pointing to th
 
 ```
 src/config/
-  schema.ts    — zod schema for YaliConfig type
-  paths.ts     — OS-native config file path resolution
-  store.ts     — readConfig / writeConfig / getNestedValue / setNestedValue / unsetNestedValue
-  manager.ts   — handleConfigCommand: routes set/get/list/unset subcommands
+  schema.ts             — zod schema for YaliConfig type
+  paths.ts              — OS-native config file path resolution
+  store.ts              — readConfig / writeConfig / getNestedValue / setNestedValue / unsetNestedValue
+  manager.ts            — handleConfigCommand: routes set/get/list/unset subcommands
+  api-key-validator.ts  — format validation rules per provider
 ```
 
 ---

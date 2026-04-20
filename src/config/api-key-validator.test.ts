@@ -108,7 +108,7 @@ describe('validateApiKey() — google', () => {
 // Ollama
 // ---------------------------------------------------------------------------
 describe('validateApiKey() — ollama', () => {
-  it('accepts any non-empty arbitrary string', () => {
+  it('accepts any string, including empty', () => {
     expect(validateApiKey('ollama', 'anything-goes').valid).toBe(true);
     expect(validateApiKey('ollama', 'local-token-123').valid).toBe(true);
     expect(validateApiKey('ollama', 'short').valid).toBe(true);
@@ -116,6 +116,9 @@ describe('validateApiKey() — ollama', () => {
 
   it('accepts a key that would be invalid for other providers', () => {
     expect(validateApiKey('ollama', 'pk-wrong-prefix').valid).toBe(true);
+  });
+
+  it('accepts an empty string', () => {
     expect(validateApiKey('ollama', '').valid).toBe(true);
   });
 });

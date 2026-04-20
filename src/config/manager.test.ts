@@ -196,24 +196,52 @@ describe('handleConfigCommand set — API key format validation', () => {
     expect(config.openai?.api_key).toBe('sk-abcdefghijklmnopqrst');
   });
 
-  it('exits with code 1 for an invalid Anthropic key', async () => {
+  it('exits with code 1 and writes to stderr for an invalid Anthropic key', async () => {
     const exitMock = vi.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit called');
+    });
+    const stderrOutput: string[] = [];
+    const stderrMock = vi.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
+      stderrOutput.push(String(data));
+      return true;
     });
     await expect(
       handleConfigCommand(['set', 'anthropic.api_key', 'invalid-anthropic-key'], configPath),
     ).rejects.toThrow('process.exit called');
+    expect(stderrOutput.join('')).toContain('❌');
     exitMock.mockRestore();
+    stderrMock.mockRestore();
   });
 
-  it('exits with code 1 for an invalid Google key', async () => {
+  it('does NOT exit and saves successfully for a valid Anthropic key', async () => {
+    const { readConfig } = await import('./store.js');
+    await handleConfigCommand(['set', 'anthropic.api_key', 'sk-ant-api03-abcdefghijklmnopqrstuvwxyz123456789012'], configPath);
+    const config = readConfig(configPath);
+    expect(config.anthropic?.api_key).toBe('sk-ant-api03-abcdefghijklmnopqrstuvwxyz123456789012');
+  });
+
+  it('exits with code 1 and writes to stderr for an invalid Google key', async () => {
     const exitMock = vi.spyOn(process, 'exit').mockImplementation(() => {
       throw new Error('process.exit called');
+    });
+    const stderrOutput: string[] = [];
+    const stderrMock = vi.spyOn(process.stderr, 'write').mockImplementation((data: string | Uint8Array) => {
+      stderrOutput.push(String(data));
+      return true;
     });
     await expect(
       handleConfigCommand(['set', 'google.api_key', 'not-a-google-key'], configPath),
     ).rejects.toThrow('process.exit called');
+    expect(stderrOutput.join('')).toContain('❌');
     exitMock.mockRestore();
+    stderrMock.mockRestore();
+  });
+
+  it('does NOT exit and saves successfully for a valid Google key', async () => {
+    const { readConfig } = await import('./store.js');
+    await handleConfigCommand(['set', 'google.api_key', 'AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q'], configPath);
+    const config = readConfig(configPath);
+    expect(config.google?.api_key).toBe('AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q');
   });
 
   it('does NOT exit for an Ollama arbitrary key (no validation)', async () => {
