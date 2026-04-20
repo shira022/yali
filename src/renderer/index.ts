@@ -1,5 +1,6 @@
 import type { ValidatedCommand, ModelSpec, Step } from '../types/index.js';
 import { RenderError } from './errors.js';
+import { validatePromptContent } from '../validator/index.js';
 
 /**
  * A single step with its prompt fully expanded by the Renderer.
@@ -101,19 +102,29 @@ export function orderSteps(command: ValidatedCommand): Step[] {
 }
 
 /**
- * Pure function: expands {{variable}} templates in a single step's prompt.
+ * Pure function: expands {{variable}} templates in a single step's prompt,
+ * then validates the rendered result for disallowed content.
  * The Executor calls this per step in multi-step mode, after adding the
  * previous step's LLM output to `variables` (e.g. `"steps.step1.output"`).
  *
- * @throws {RenderError} if a template variable is not found in `variables`.
+ * @throws {RenderError} if a template variable is not found in `variables`,
+ *   or if the rendered prompt contains disallowed content (NUL bytes,
+ *   forbidden control characters, or exceeds the maximum length).
  */
 export function renderStep(
   step: Step,
   variables: Record<string, string>,
 ): RenderedStep {
+  const rendered = expandTemplate(step.prompt, variables);
+
+  const validation = validatePromptContent(rendered, `step "${step.id}" rendered prompt`);
+  if (!validation.valid) {
+    throw new RenderError(validation.error!);
+  }
+
   return {
     id: step.id,
-    prompt: expandTemplate(step.prompt, variables),
+    prompt: rendered,
     model: step.model,
     depends_on: step.depends_on,
   };

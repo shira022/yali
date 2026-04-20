@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ProviderName, ValidatedCommand } from '../types/index.js';
+import { validatePromptContent } from '../validator/index.js';
 
 const PROVIDER_VALUES = ['openai', 'anthropic', 'google', 'ollama'] as const;
 
@@ -15,7 +16,12 @@ const ModelSpecSchema = z.preprocess(
 
 const StepSchema = z.object({
   id: z.string(),
-  prompt: z.string(),
+  prompt: z.string().superRefine((val, ctx) => {
+    const result = validatePromptContent(val, '"prompt"');
+    if (!result.valid) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.error });
+    }
+  }),
   model: ModelSpecSchema,
   depends_on: z.array(z.string()).default([]),
 });
@@ -77,6 +83,11 @@ export const ValidatedCommandSchema: z.ZodType<ValidatedCommand, z.ZodTypeDef, u
       }
       steps = stepsResult.data;
     } else if (data.prompt !== undefined) {
+      const promptResult = validatePromptContent(data.prompt, '"prompt"');
+      if (!promptResult.valid) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: promptResult.error });
+        return z.NEVER;
+      }
       const modelRaw = data.model ?? 'gpt-4o';
       const modelResult = ModelSpecSchema.safeParse(modelRaw);
       if (!modelResult.success) {

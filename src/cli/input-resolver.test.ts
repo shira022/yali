@@ -252,4 +252,52 @@ describe('resolveInput — Input Resolution Order', () => {
     const result = await resolveInput(command, { vars: [], hasStdin: false });
     expect(result).toEqual({});
   });
+
+  // ── Validation: --var key/value and primary input ──────────────────────────
+
+  it('throws InputResolverError when --var key contains shell metacharacters', async () => {
+    const command = makeCommand({ from: 'args' });
+    await expect(
+      resolveInput(command, { vars: ['key$(cmd)=value'], hasStdin: false }),
+    ).rejects.toThrow(InputResolverError);
+  });
+
+  it('throws InputResolverError when --var key is empty', async () => {
+    const command = makeCommand({ from: 'args' });
+    await expect(
+      resolveInput(command, { vars: ['=value'], hasStdin: false }),
+    ).rejects.toThrow(InputResolverError);
+  });
+
+  it('throws InputResolverError when --var value contains a NUL byte', async () => {
+    const command = makeCommand({ from: 'args' });
+    await expect(
+      resolveInput(command, { vars: ['input=hello\x00world'], hasStdin: false }),
+    ).rejects.toThrow(InputResolverError);
+  });
+
+  it('throws InputResolverError when --var value contains a forbidden control character', async () => {
+    const command = makeCommand({ from: 'args' });
+    await expect(
+      resolveInput(command, { vars: ['input=data\x1binjected'], hasStdin: false }),
+    ).rejects.toThrow(InputResolverError);
+  });
+
+  it('throws InputResolverError when primary input from args contains a NUL byte', async () => {
+    const command = makeCommand({ from: 'args' });
+    await expect(
+      resolveInput(command, { vars: [], inputArg: 'hello\x00world', hasStdin: false }),
+    ).rejects.toThrow(InputResolverError);
+  });
+
+  it('throws InputResolverError when primary stdin input contains a forbidden control character', async () => {
+    const command = makeCommand({ from: 'stdin' });
+    await expect(
+      resolveInput(command, {
+        vars: [],
+        hasStdin: true,
+        stdin: makeReadable('data\x1binjected'),
+      }),
+    ).rejects.toThrow(InputResolverError);
+  });
 });

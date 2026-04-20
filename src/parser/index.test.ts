@@ -172,6 +172,26 @@ describe('ValidatedCommandSchema — validation errors', () => {
       }),
     ).toThrow();
   });
+
+  it('throws when shorthand prompt contains a NUL byte', () => {
+    expect(() =>
+      ValidatedCommandSchema.parse({ prompt: 'Hello\x00world', model: 'gpt-4o' }),
+    ).toThrow(/NUL bytes/);
+  });
+
+  it('throws when shorthand prompt contains a forbidden control character', () => {
+    expect(() =>
+      ValidatedCommandSchema.parse({ prompt: 'Inject\x1bsequence', model: 'gpt-4o' }),
+    ).toThrow(/control characters/);
+  });
+
+  it('throws when a step prompt contains a NUL byte', () => {
+    expect(() =>
+      ValidatedCommandSchema.parse({
+        steps: [{ id: 's1', prompt: 'Bad\x00byte', model: 'gpt-4o' }],
+      }),
+    ).toThrow(/NUL bytes/);
+  });
 });
 
 // ---------------------------------------------------------------------------
