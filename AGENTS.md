@@ -49,6 +49,7 @@ CLI Layer → Parser → Renderer → Executor
 - ❌ Never add side effects (file I/O, network calls, randomness) to the Renderer.
 - ❌ Never create agent-specific config files (`CLAUDE.md`, `copilot-instructions.md`, `.claude/`, etc.).
 - ❌ Never bypass the `ValidatedCommand` interface between Parser and Renderer.
+- ❌ **Never merge a PR** — even with `--admin` or `--bypass-branch-protection`. Merging is a **human-only** action. Agents must stop after adding the `approved` label and wait for a human to add `LGTM` and merge.
 
 ---
 
@@ -110,6 +111,10 @@ Issues found?
 Both labels are required before merging:
 - `approved` — added automatically by Evaluator when all issues resolved
 - `LGTM` — added manually by a human maintainer
+
+> ⚠️ **Agents must STOP after adding the `approved` label.**
+> Executing `gh pr merge` (including `--admin` or `--bypass-branch-protection`) is **strictly forbidden** for agents.
+> Wait for a human to add `LGTM` and perform the merge.
 
 ### Becoming the Orchestrator
 

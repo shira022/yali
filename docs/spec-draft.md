@@ -268,7 +268,7 @@ Ollama does not use an API key. Instead, it requires a `base_url` pointing to th
 1. **Config file** — `ollama.base_url` in the yali config file
 2. **Default** — `http://localhost:11434/v1`
 
-> **Note:** Unlike other LLM providers, Ollama uses a `base_url` instead of an API key. Both are resolved exclusively from the config file — no environment variables are consulted.
+> **Note:** Unlike other LLM providers, Ollama uses a `base_url` instead of an API key. The `base_url` (like API keys for other providers) is resolved exclusively from the config file — no environment variables are consulted.
 
 ### Module Structure
 
