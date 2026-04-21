@@ -2,6 +2,7 @@
   "name": "yali",
   "version": "0.1.0",
   "description": "YAML LLM Interface — Define LLM commands in YAML and run them as a CLI tool",
+  "files": ["dist"],
   "bin": {
     "yali": "./dist/cli.js"
   },

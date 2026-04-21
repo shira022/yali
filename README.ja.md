@@ -1,6 +1,6 @@
 # yali — YAML LLM Interface
 
-[![CI](https://github.com/your-org/yali/actions/workflows/ci.yml/badge.svg)](https://github.com/your-org/yali/actions/workflows/ci.yml)
+[![CI](https://github.com/shira022/yali/actions/workflows/ci.yml/badge.svg)](https://github.com/shira022/yali/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node.js 20+](https://img.shields.io/badge/Node.js-20%2B-green.svg)](https://nodejs.org/)
 
@@ -29,12 +29,26 @@
 ### インストール
 
 ```bash
-git clone https://github.com/your-org/yali.git
+# 推奨: npm からインストール
+npm install -g yali
+```
+
+インストールせずに実行する場合:
+```bash
+npx yali --help
+```
+
+<details>
+<summary>ソースからビルドする場合</summary>
+
+```bash
+git clone https://github.com/shira022/yali.git
 cd yali
 npm install
 npm run build
 npm link
 ```
+</details>
 
 ### 30秒サンプル
 

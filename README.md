@@ -1,6 +1,6 @@
 # yali
 
-[![CI](https://img.shields.io/github/actions/workflow/status/your-org/yali/ci.yml?label=CI&style=flat-square)](https://github.com/your-org/yali/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/shira022/yali/ci.yml?label=CI&style=flat-square)](https://github.com/shira022/yali/actions)
 [![npm](https://img.shields.io/npm/v/yali?style=flat-square)](https://www.npmjs.com/package/yali)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
@@ -29,12 +29,26 @@
 ### Install
 
 ```bash
-git clone https://github.com/your-org/yali.git
+# Recommended: install from npm
+npm install -g yali
+```
+
+Or run without installing:
+```bash
+npx yali --help
+```
+
+<details>
+<summary>Build from source</summary>
+
+```bash
+git clone https://github.com/shira022/yali.git
 cd yali
 npm install
 npm run build
-npm link          # makes `yali` available globally
+npm link
 ```
+</details>
 
 ### 30-second example
 
