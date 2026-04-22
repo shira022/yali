@@ -239,9 +239,9 @@ describe('handleConfigCommand set — API key format validation', () => {
 
   it('does NOT exit and saves successfully for a valid Google key', async () => {
     const { readConfig } = await import('./store.js');
-    await handleConfigCommand(['set', 'google.api_key', 'AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q'], configPath);
+    await handleConfigCommand(['set', 'google.api_key', 'AIzaTEST_ONLY_FAKE_KEY_NOT_REAL_ABCDEFG'], configPath);
     const config = readConfig(configPath);
-    expect(config.google?.api_key).toBe('AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q');
+    expect(config.google?.api_key).toBe('AIzaTEST_ONLY_FAKE_KEY_NOT_REAL_ABCDEFG');
   });
 
   it('does NOT exit for an Ollama arbitrary key (no validation)', async () => {

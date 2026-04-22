@@ -76,7 +76,7 @@ describe('validateApiKey() — anthropic', () => {
 describe('validateApiKey() — google', () => {
   it('accepts a valid AIza key of exactly 39 chars', () => {
     // AIza + 35 chars = 39 total
-    const result = validateApiKey('google', 'AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q');
+    const result = validateApiKey('google', 'AIzaTEST_ONLY_FAKE_KEY_NOT_REAL_ABCDEFG');
     expect(result.valid).toBe(true);
   });
 
@@ -94,7 +94,7 @@ describe('validateApiKey() — google', () => {
   });
 
   it('rejects a key that is too long (more than 39 chars)', () => {
-    const result = validateApiKey('google', 'AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6QEXTRA');
+    const result = validateApiKey('google', 'AIzaTEST_ONLY_FAKE_KEY_NOT_REAL_ABCDEFGEXTRA');
     expect(result.valid).toBe(false);
   });
 
