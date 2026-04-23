@@ -34,8 +34,8 @@ See [`docs/spec-draft.md`](../spec-draft.md) for the full specification.
 | `ValidatedCommand` type definition | ◎ `interface`/type system maps naturally |
 | Pure-function Renderer | ◎ Functional style is idiomatic |
 | UNIX pipe / stdin·stdout | ○ `process.stdin` works well |
-| Single-binary distribution | △ Requires `pkg` or similar; `npx yali` is practical |
-| OSS distribution | ◎ `npm publish` / `npx yali` — broad reach |
+| Single-binary distribution | △ Requires `pkg` or similar; `npx @shira022/yali` is practical |
+| OSS distribution | ◎ `npm publish` / `npx @shira022/yali` — broad reach |
 | Testing | ◎ Vitest/Jest, excellent for pure-function unit tests |
 
 ### Option B: Go
@@ -84,7 +84,7 @@ See [`docs/spec-draft.md`](../spec-draft.md) for the full specification.
 
 3. **Agents SDK — full parity**: As of June 2025, the OpenAI TypeScript Agents SDK has reached full feature parity with Python. Multi-step orchestration and streaming can be implemented at the SDK level rather than building on raw REST calls, which would be required in Go.
 
-4. **OSS distribution via npm**: Publishing to npm and supporting `npx yali` makes the tool immediately accessible to a wide developer audience without any environment setup. This aligns with the goal of broad OSS adoption.
+4. **OSS distribution via npm**: Publishing to npm and supporting `npx @shira022/yali` makes the tool immediately accessible to a wide developer audience without any environment setup. This aligns with the goal of broad OSS adoption.
 
 5. **Streaming is idiomatic**: `for await...of` async iteration over streaming responses is natural TypeScript, matching the feel of the rest of the codebase.
 
@@ -92,7 +92,7 @@ See [`docs/spec-draft.md`](../spec-draft.md) for the full specification.
 
 ## Trade-offs and Concerns
 
-- **Single-binary distribution**: Go produces a standalone binary via `go build` with no runtime dependency. TypeScript requires Node.js on the user's machine. `npx yali` mitigates this for the npm ecosystem, but distributing via Homebrew or as a self-contained binary requires additional tooling (e.g., `@vercel/pkg`).
+- **Single-binary distribution**: Go produces a standalone binary via `go build` with no runtime dependency. TypeScript requires Node.js on the user's machine. `npx @shira022/yali` mitigates this for the npm ecosystem, but distributing via Homebrew or as a self-contained binary requires additional tooling (e.g., `@vercel/pkg`).
 
 - **UNIX pipe robustness**: Go's standard library handles `stdin`/`stdout`/pipe and exit-code management more robustly than Node.js. This is an area that will require careful implementation in the Executor layer.
 

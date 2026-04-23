@@ -35,7 +35,7 @@ npm install -g @shira022/yali
 
 インストールせずに実行する場合:
 ```bash
-npx yali --help
+npx @shira022/yali --help
 ```
 
 <details>

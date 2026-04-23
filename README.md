@@ -1,7 +1,7 @@
 # yali
 
 [![CI](https://img.shields.io/github/actions/workflow/status/shira022/yali/ci.yml?label=CI&style=flat-square)](https://github.com/shira022/yali/actions)
-[![npm](https://img.shields.io/npm/v/yali?style=flat-square)](https://www.npmjs.com/package/yali)
+[![npm](https://img.shields.io/npm/v/%40shira022%2Fyali?style=flat-square)](https://www.npmjs.com/package/@shira022/yali)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 **YAML LLM Interface** — define LLM commands in YAML, run them from the terminal.
@@ -35,7 +35,7 @@ npm install -g @shira022/yali
 
 Or run without installing:
 ```bash
-npx yali --help
+npx @shira022/yali --help
 ```
 
 <details>
