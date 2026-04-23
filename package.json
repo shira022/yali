@@ -2,6 +2,10 @@
   "name": "@shira022/yali",
   "version": "0.1.0",
   "description": "YAML LLM Interface — Define LLM commands in YAML and run them as a CLI tool",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shira022/yali"
+  },
   "files": ["dist"],
   "bin": {
     "yali": "./dist/cli.js"
