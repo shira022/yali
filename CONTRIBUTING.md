@@ -141,6 +141,18 @@ The `pr-review-trigger.yml` and `merge-gate.yml` workflows:
 
 All AI processing happens on contributors' local machines or cloud agents — not in GitHub Actions runners.
 
+### Dependabot PRs
+
+Dependabot PRs (automated dependency updates) are **exempt from the AI review flow**.
+
+- The `review-needed` label is **not** added to Dependabot PRs
+- The `approved` label is **not** required for Dependabot PRs
+- Only a human `LGTM` label is needed to pass the merge gate
+
+This is intentional: automated dependency bumps (e.g., GitHub Actions version updates) do not benefit from the AI review pipeline, which is designed for source code changes.
+
+> **For maintainers**: review Dependabot PRs manually, add the `LGTM` label if the change looks safe, and merge.
+
 ### Label Reference
 
 | Label | Added By | Meaning |

@@ -41,13 +41,24 @@ jobs:
           MISSING=()
           PASS=true
 
-          # Check for 'approved' label (added by AI evaluator)
-          if has_label "approved"; then
-            echo "✅ 'approved' label present (AI review passed)"
-          else
-            echo "❌ 'approved' label missing (AI review not yet complete)"
-            MISSING+=("approved label (AI review)")
-            PASS=false
+          # Dependabot PRs are exempt from the AI review requirement.
+          # They only need a human LGTM label to pass the merge gate.
+          ACTOR=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json author --jq '.author.login')
+          IS_DEPENDABOT=false
+          if [ "$ACTOR" = "app/dependabot" ]; then
+            IS_DEPENDABOT=true
+            echo "ℹ️ Dependabot PR detected — skipping 'approved' label check"
+          fi
+
+          if [ "$IS_DEPENDABOT" = "false" ]; then
+            # Check for 'approved' label (added by AI evaluator)
+            if has_label "approved"; then
+              echo "✅ 'approved' label present (AI review passed)"
+            else
+              echo "❌ 'approved' label missing (AI review not yet complete)"
+              MISSING+=("approved label (AI review)")
+              PASS=false
+            fi
           fi
 
           # Check for sufficient 'LGTM' labels (added manually by maintainers)
@@ -62,7 +73,11 @@ jobs:
 
           if [ "$PASS" = "true" ]; then
             echo ""
-            echo "🟢 Merge gate passed — PR has all required labels."
+            if [ "$IS_DEPENDABOT" = "true" ]; then
+              echo "🟢 Merge gate passed — Dependabot PR with LGTM label."
+            else
+              echo "🟢 Merge gate passed — PR has all required labels."
+            fi
             exit 0
           else
             echo ""

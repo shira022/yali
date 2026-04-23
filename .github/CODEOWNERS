@@ -1,0 +1,8 @@
+# CODEOWNERS — defines who must approve pull requests
+#
+# All files require review from @shira022.
+# This ensures require_code_owner_reviews in branch protection is enforced.
+* @shira022
+
+# CODEOWNERS itself also requires @shira022 approval (self-protecting)
+.github/CODEOWNERS @shira022
