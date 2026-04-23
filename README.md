@@ -131,3 +131,5 @@ Contributions are welcome! Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** fo
 ## License
 
 MIT — see [LICENSE](LICENSE) for details.
+
+Third-party dependency licenses are listed in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).

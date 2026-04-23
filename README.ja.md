@@ -122,3 +122,5 @@ Options:
 ## ライセンス
 
 [MIT](LICENSE)
+
+サードパーティライブラリのライセンス表示は [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) を参照してください。
