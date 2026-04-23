@@ -16,8 +16,8 @@ Additionally, `yali` is a **project-agnostic, cross-project general-purpose CLI*
 
 When implementing `package.json` for `yali`, the following design decisions were made but not yet recorded as an ADR:
 
-- `npm install -g yali` — for developers who use `yali` daily
-- `npx yali` — for CI pipelines and spot usage (no prior install required)
+- `npm install -g @shira022/yali` — for developers who use `yali` daily
+- `npx @shira022/yali` — for CI pipelines and spot usage (no prior install required)
 - The `bin` field in `package.json` automatically enables both patterns
 
 ---
@@ -26,7 +26,7 @@ When implementing `package.json` for `yali`, the following design decisions were
 
 ### Option A: `npx`-only support
 
-Distribute `yali` without encouraging global installation. Users always run `npx yali run ...`.
+Distribute `yali` without encouraging global installation. Users always run `npx @shira022/yali run ...`.
 
 | Aspect | Assessment |
 |---|---|
@@ -59,8 +59,8 @@ Support both usage patterns by publishing `yali` to npm with a `bin` field in `p
 
 | Aspect | Assessment |
 |---|---|
-| Daily interactive use | ◎ `npm install -g yali` → persistent `yali` command in PATH |
-| CI / spot usage | ◎ `npx yali run ...` → zero-install, runs latest version |
+| Daily interactive use | ◎ `npm install -g @shira022/yali` → persistent `yali` command in PATH |
+| CI / spot usage | ◎ `npx @shira022/yali run ...` → zero-install, runs latest version |
 | Shell tab-completion | ○ Available after global install |
 | Implementation overhead | ◎ Zero — the `bin` field handles both automatically |
 | Local project install | ✕ Not recommended (see Rationale below) |
@@ -69,13 +69,13 @@ Support both usage patterns by publishing `yali` to npm with a `bin` field in `p
 
 ## Decision
 
-**Publish `yali` to npm with a `bin` field**, supporting both `npm install -g yali` (daily use) and `npx yali` (CI / spot use).
+**Publish `yali` to npm with a `bin` field**, supporting both `npm install -g @shira022/yali` (daily use) and `npx @shira022/yali` (CI / spot use).
 
 The `package.json` `bin` field:
 
 ```json
 {
-  "name": "yali",
+  "name": "@shira022/yali",
   "bin": {
     "yali": "./dist/cli.js"
   }
@@ -104,8 +104,8 @@ This single configuration entry makes both installation methods work automatical
 
 - ✅ Zero additional distribution tooling — `bin` field is sufficient.
 - ✅ Both daily and CI usage patterns are covered with a single `package.json` change.
-- ✅ First-time users can evaluate `yali` immediately via `npx yali --help`.
-- ✅ Power users get a persistent, low-latency command via `npm install -g yali`.
+- ✅ First-time users can evaluate `yali` immediately via `npx @shira022/yali --help`.
+- ✅ Power users get a persistent, low-latency command via `npm install -g @shira022/yali`.
 
 ### Negative / Trade-offs
 
