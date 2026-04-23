@@ -30,7 +30,7 @@
 
 ```bash
 # Recommended: install from npm
-npm install -g yali
+npm install -g @shira022/yali
 ```
 
 Or run without installing:

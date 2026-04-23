@@ -30,7 +30,7 @@
 
 ```bash
 # 推奨: npm からインストール
-npm install -g yali
+npm install -g @shira022/yali
 ```
 
 インストールせずに実行する場合:
