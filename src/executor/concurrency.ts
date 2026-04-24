@@ -11,7 +11,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { getConfigPath } from '../config/paths.js';
-import { readConfig, getNestedValue } from '../config/store.js';
+import { readConfig } from '../config/store.js';
 import { ExecutorError } from './errors.js';
 
 export const DEFAULT_MAX_CONCURRENT = 3;
@@ -38,8 +38,8 @@ export function getLockDir(): string {
 export function getMaxConcurrent(): number {
   try {
     const config = readConfig(getConfigPath());
-    const max = getNestedValue(config, 'concurrency.max');
-    if (max !== undefined && typeof max === 'number' && max > 0) {
+    const max = config.concurrency?.max;
+    if (max !== undefined && max > 0) {
       return Math.floor(max);
     }
   } catch { /* ignore: config may not exist */ }

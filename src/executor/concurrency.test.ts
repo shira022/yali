@@ -85,23 +85,21 @@ describe('ConcurrencyLock', () => {
   });
 
   describe('concurrency limit enforcement', () => {
-    it('allows up to max concurrent locks', () => {
-      const max = DEFAULT_MAX_CONCURRENT; // 3
-      const locks: InstanceType<typeof ConcurrencyLock>[] = [];
+    it('allows acquire when below the limit (max-1 existing locks)', () => {
+      // Pre-fill max-1 fake locks with alive PIDs to stay just under the limit
+      const max = DEFAULT_MAX_CONCURRENT;
+      const killSpy = vi.spyOn(process, 'kill').mockImplementation(() => true);
 
-      for (let i = 0; i < max; i++) {
-        // Simulate "other processes" by writing fake lock files for non-existent PIDs
-        // (but we must keep them alive — easiest is to use the real process PID trick:
-        // just pre-fill max-1 fake slots, then acquire ours)
-        void i;
+      for (let i = 1; i <= max - 1; i++) {
+        writeFakeLock(process.pid + i);
       }
 
-      // Acquire once — should succeed (only 1 active lock)
+      // With max-1 "alive" locks + ours = max total → still within limit, should not throw
       const lock = new ConcurrencyLock();
       expect(() => lock.acquire()).not.toThrow();
-      locks.push(lock);
+      lock.release();
 
-      locks.forEach((l) => l.release());
+      killSpy.mockRestore();
     });
 
     it('throws ExecutorError when active locks equal max (via kill mock)', () => {
@@ -177,6 +175,36 @@ describe('ConcurrencyLock', () => {
 
       killSpy.mockRestore();
       clearLocks();
+    });
+  });
+
+  describe('getMaxConcurrent — config value', () => {
+    it('returns configured value when concurrency.max is set in config.yaml', () => {
+      // Write a config file with concurrency.max: 7
+      writeFileSync(tmpConfigFile, 'concurrency:\n  max: 7\n', 'utf-8');
+
+      const result = getMaxConcurrent();
+      expect(result).toBe(7);
+
+      // Cleanup
+      try { unlinkSync(tmpConfigFile); } catch { /* ignore */ }
+    });
+  });
+
+  describe('acquire — EEXIST path', () => {
+    it('overwrites stale same-PID lock file when O_EXCL throws EEXIST', () => {
+      // Pre-write a lock file for the current PID (simulates a previous crash without cleanup)
+      writeFakeLock(process.pid);
+      expect(lockCount()).toBe(1);
+
+      // acquire() should handle EEXIST gracefully and overwrite
+      const lock = new ConcurrencyLock();
+      expect(() => lock.acquire()).not.toThrow();
+      // Still only 1 lock file (the overwritten one)
+      expect(lockCount()).toBe(1);
+
+      lock.release();
+      expect(lockCount()).toBe(0);
     });
   });
 });
