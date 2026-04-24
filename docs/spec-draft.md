@@ -203,6 +203,7 @@ cat input.txt | yali run translate.yaml | jq '.result'
 - **Resolve API keys via `src/config/` module** (config file only; environment variables are not consulted)
 - Handle streaming responses
 - Manage rate limits and errors
+- **Enforce process-level concurrency limit** — At most `concurrency.max` (default: 3) `yali run` processes may run simultaneously on a machine. Enforced via PID lock files in `~/.config/yali/locks/`. Exceeding the limit causes an immediate `ExecutorError`. Lock files are automatically cleaned up on exit (and stale locks from crashed processes are removed on next startup via PID liveness check + 24h timestamp expiry).
 - Dispatch multi-step steps sequentially or in parallel
 - Convert output format (text/json/markdown) and write to the target
 - **Returns: `ExecutionResult` (exit code and output content)**
@@ -246,7 +247,15 @@ google:
   api_key: AIza...
 ollama:
   base_url: http://localhost:11434/v1
+concurrency:
+  max: 3          # optional; defaults to 3 when absent
 ```
+
+The `concurrency` section controls the process-level concurrency limit. All keys are optional; omitting the section uses built-in defaults.
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `concurrency.max` | positive integer | `3` | Maximum number of simultaneous `yali run` processes on this machine |
 
 ### Security
 
@@ -342,6 +351,8 @@ Each function returns `{ valid: true }` on success, or `{ valid: false, error: s
 | YAML → TOML support | Parser only | All other layers |
 | `--dry-run` feature | CLI Layer → stops at Renderer | Executor |
 | New LLM provider / API key | `src/config/schema.ts`, Executor adapter | Parser, Renderer, CLI Layer |
+| Changing concurrency limit default | `src/executor/concurrency.ts` constant | All other layers |
+| Adding concurrency config key | `src/config/schema.ts` only | All pipeline layers |
 
 ---
 

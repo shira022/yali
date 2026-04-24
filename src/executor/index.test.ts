@@ -543,4 +543,46 @@ describe('execute()', () => {
     expect(result.output).toMatch(/control characters/);
     expect(mockCreate).not.toHaveBeenCalled();
   });
+
+  // ---------------------------------------------------------------------------
+  // ConcurrencyLock integration
+  // ---------------------------------------------------------------------------
+  describe('ConcurrencyLock integration', () => {
+    it('returns exitCode 1 when ConcurrencyLock.acquire() throws (over-limit)', async () => {
+      vi.doMock('./concurrency.js', () => ({
+        ConcurrencyLock: vi.fn().mockImplementation(() => ({
+          acquire: vi.fn().mockImplementation(() => {
+            throw new ExecutorError('Maximum concurrent yali processes (3) reached.');
+          }),
+          release: vi.fn(),
+        })),
+      }));
+
+      const { execute } = await import('./index.js');
+      const result = await execute(makeCommand(), { input: 'test' });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.output).toMatch(/Maximum concurrent yali processes/);
+    });
+
+    it('calls lock.release() in finally even when LLM API throws', async () => {
+      const releaseSpy = vi.fn();
+      vi.doMock('./concurrency.js', () => ({
+        ConcurrencyLock: vi.fn().mockImplementation(() => ({
+          acquire: vi.fn(),
+          release: releaseSpy,
+        })),
+      }));
+
+      // Make the LLM adapter throw
+      const openaiModule = await import('openai') as unknown as { __mockCreate: ReturnType<typeof vi.fn> };
+      openaiModule.__mockCreate.mockRejectedValueOnce(new Error('Network error'));
+
+      const { execute } = await import('./index.js');
+      const result = await execute(makeCommand(), { input: 'test' });
+
+      expect(result.exitCode).toBe(1);
+      expect(releaseSpy).toHaveBeenCalledTimes(1);
+    });
+  });
 });
