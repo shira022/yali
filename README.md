@@ -109,6 +109,11 @@ yali includes built-in safeguards to prevent runaway API usage:
     name: gpt-4o
     max_retries: 1   # retry at most once
   ```
+- **Concurrency limit** — At most **3** `yali run` processes may run simultaneously on your machine. If you exceed this limit, the new invocation exits immediately with an error. Change the limit via:
+  ```bash
+  yali config set concurrency.max 5   # allow up to 5 concurrent processes
+  yali config get concurrency.max     # check the current limit
+  ```
 
 > **⚠️ Cost warning:** Even with these defaults, repeated or parallel invocations of `yali run` can accumulate LLM API charges quickly. Monitor your provider usage dashboards and set appropriate limits in your YAML files for long-running workflows.
 
