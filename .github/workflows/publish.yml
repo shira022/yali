@@ -29,10 +29,11 @@ jobs:
       - name: Test
         run: npm test
 
+      - name: Remove _authToken injected by setup-node (required for OIDC Trusted Publishing)
+        run: npm config delete //registry.npmjs.org/:_authToken || true
+
       - name: Publish to npm
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
