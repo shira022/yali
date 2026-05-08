@@ -7,7 +7,6 @@ import { createAdapter } from './adapters/types.js';
 import { DEFAULT_OLLAMA_BASE_URL } from './adapters/ollama.js';
 import { getConfigPath } from '../config/paths.js';
 import { readConfig, getNestedValue } from '../config/store.js';
-import { ConcurrencyLock } from './concurrency.js';
 
 /**
  * Resolves the Ollama base URL from yali config or default.
@@ -79,14 +78,11 @@ export async function execute(
   const { output_spec } = command;
   const useStreaming = output_spec.target === 'stdout' && output_spec.format !== 'json';
 
-  const lock = new ConcurrencyLock();
   const vars: Record<string, string> = { ...variables };
   // Cache adapters by provider to avoid re-creating clients
   const adapterCache = new Map<ProviderName, ReturnType<typeof createAdapter>>();
 
   try {
-    lock.acquire();
-
     const orderedSteps = orderSteps(command);
     let lastOutput = '';
 
@@ -148,7 +144,5 @@ export async function execute(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return { exitCode: 1, output: message };
-  } finally {
-    lock.release();
   }
 }

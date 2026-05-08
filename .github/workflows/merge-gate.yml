@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Checkout (for config file)
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@v4
 
       - name: Check required labels
         env:
@@ -41,24 +41,13 @@ jobs:
           MISSING=()
           PASS=true
 
-          # Dependabot PRs are exempt from the AI review requirement.
-          # They only need a human LGTM label to pass the merge gate.
-          ACTOR=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json author --jq '.author.login')
-          IS_DEPENDABOT=false
-          if [ "$ACTOR" = "app/dependabot" ]; then
-            IS_DEPENDABOT=true
-            echo "ℹ️ Dependabot PR detected — skipping 'approved' label check"
-          fi
-
-          if [ "$IS_DEPENDABOT" = "false" ]; then
-            # Check for 'approved' label (added by AI evaluator)
-            if has_label "approved"; then
-              echo "✅ 'approved' label present (AI review passed)"
-            else
-              echo "❌ 'approved' label missing (AI review not yet complete)"
-              MISSING+=("approved label (AI review)")
-              PASS=false
-            fi
+          # Check for 'approved' label (added by AI evaluator)
+          if has_label "approved"; then
+            echo "✅ 'approved' label present (AI review passed)"
+          else
+            echo "❌ 'approved' label missing (AI review not yet complete)"
+            MISSING+=("approved label (AI review)")
+            PASS=false
           fi
 
           # Check for sufficient 'LGTM' labels (added manually by maintainers)
@@ -73,11 +62,7 @@ jobs:
 
           if [ "$PASS" = "true" ]; then
             echo ""
-            if [ "$IS_DEPENDABOT" = "true" ]; then
-              echo "🟢 Merge gate passed — Dependabot PR with LGTM label."
-            else
-              echo "🟢 Merge gate passed — PR has all required labels."
-            fi
+            echo "🟢 Merge gate passed — PR has all required labels."
             exit 0
           else
             echo ""

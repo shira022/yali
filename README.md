@@ -1,7 +1,7 @@
 # yali
 
 [![CI](https://img.shields.io/github/actions/workflow/status/shira022/yali/ci.yml?label=CI&style=flat-square)](https://github.com/shira022/yali/actions)
-[![npm](https://img.shields.io/npm/v/%40shira022%2Fyali?style=flat-square)](https://www.npmjs.com/package/@shira022/yali)
+[![npm](https://img.shields.io/npm/v/yali?style=flat-square)](https://www.npmjs.com/package/yali)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 
 **YAML LLM Interface** — define LLM commands in YAML, run them from the terminal.
@@ -35,7 +35,7 @@ npm install -g @shira022/yali
 
 Or run without installing:
 ```bash
-npx @shira022/yali --help
+npx yali --help
 ```
 
 <details>
@@ -109,11 +109,6 @@ yali includes built-in safeguards to prevent runaway API usage:
     name: gpt-4o
     max_retries: 1   # retry at most once
   ```
-- **Concurrency limit** — At most **3** `yali run` processes may run simultaneously on your machine. If you exceed this limit, the new invocation exits immediately with an error. Change the limit via:
-  ```bash
-  yali config set concurrency.max 5   # allow up to 5 concurrent processes
-  yali config get concurrency.max     # check the current limit
-  ```
 
 > **⚠️ Cost warning:** Even with these defaults, repeated or parallel invocations of `yali run` can accumulate LLM API charges quickly. Monitor your provider usage dashboards and set appropriate limits in your YAML files for long-running workflows.
 
@@ -136,5 +131,3 @@ Contributions are welcome! Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** fo
 ## License
 
 MIT — see [LICENSE](LICENSE) for details.
-
-Third-party dependency licenses are listed in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).
