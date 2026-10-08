@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util';
 import { parseCommand } from './parser/index.js';
-import { orderSteps, renderStep } from './renderer/index.js';
 import { execute } from './executor/index.js';
 import { resolveInput, InputResolverError } from './cli/input-resolver.js';
+import { renderDryRunSteps } from './cli/dry-run.js';
 import { formatDryRun } from './cli/dry-run-formatter.js';
 import { handleConfigCommand } from './config/manager.js';
 
@@ -90,11 +90,12 @@ export async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Step 3a — Dry-run: render only, no LLM call
+  // Step 3a — Dry-run: render only, no LLM call.
+  // Declared steps' outputs are pre-defined as placeholders so inter-step
+  // references ({{steps.<id>.output}}) resolve without calling the LLM.
   if (dryRun) {
     try {
-      const orderedSteps = orderSteps(command);
-      const renderedSteps = orderedSteps.map((step) => renderStep(step, variables));
+      const renderedSteps = renderDryRunSteps(command, variables);
       const output = formatDryRun(renderedSteps, outputFormat);
       process.stdout.write(output);
       if (!output.endsWith('\n')) {

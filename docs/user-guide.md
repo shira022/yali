@@ -573,15 +573,13 @@ Output:
 
 ### Multi-step dry run
 
-Dry run renders each step's prompt in topological order. Note that **inter-step output references (`{{steps.<id>.output}}`) are not available** during dry run, since no LLM calls are made. If any step prompt references `{{steps.<id>.output}}`, the dry run will exit with a `RenderError`.
-
-Dry run works well for pipelines where steps only reference `{{input}}` or `--var` variables:
+Dry run renders each step's prompt in topological order. Since no LLM calls are made, each declared step's output reference (`{{steps.<id>.output}}`) resolves to the placeholder `[dry-run] <id>`, so multi-step pipelines can be inspected without errors. References to undeclared steps (e.g. `{{steps.unknown.output}}`) still fail with a `RenderError` and exit code 1.
 
 ```bash
-# Works: single-step or multi-step without inter-step output refs
-yali run translate.yaml --input "Hello" --dry-run
+# Multi-step pipelines render with placeholder step outputs
+yali run pipeline.yaml --input "Hello" --dry-run
 
-# Also works: pre-supply step outputs via --var
+# Optionally override a placeholder via --var
 yali run pipeline.yaml --input "Hello" \
   --var "steps.step_a.output=simulated output" \
   --dry-run --format json

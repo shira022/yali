@@ -145,6 +145,28 @@ describe('CLI Layer', () => {
     expect(mockedFormatDryRun).toHaveBeenCalledWith(expect.any(Array), 'json');
   });
 
+  it('--dry-run pre-defines steps.<id>.output placeholders before rendering', async () => {
+    process.argv = ['node', 'cli.js', 'run', 'cmd.yaml', '--dry-run'];
+    await expect(main()).rejects.toThrow('process.exit(0)');
+    expect(mockedRenderStep).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ 'steps.step1.output': '[dry-run] step1' }),
+    );
+  });
+
+  it('exits 1 and prints to stderr when dry-run rendering fails (unresolvable variable)', async () => {
+    process.argv = ['node', 'cli.js', 'run', 'cmd.yaml', '--dry-run'];
+    mockedRenderStep.mockImplementation(() => {
+      throw new Error('Variable "steps.unknown.output" is not defined');
+    });
+    await expect(main()).rejects.toThrow('process.exit(1)');
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(exitSpy).not.toHaveBeenCalledWith(0);
+    const stderrOutput = stderrSpy.mock.calls.map((c: unknown[]) => String(c[0])).join('');
+    expect(stderrOutput).toContain('Variable "steps.unknown.output" is not defined');
+    expect(mockedExecute).not.toHaveBeenCalled();
+  });
+
   it('detects piped stdin (hasStdin=true) when isTTY is false', async () => {
     Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true });
     process.argv = ['node', 'cli.js', 'run', 'cmd.yaml'];
