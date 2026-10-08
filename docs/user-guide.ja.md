@@ -493,15 +493,13 @@ yali run translate.yaml --input "Hello, world" --dry-run
 
 ### マルチステップのドライラン
 
-ドライランでは各ステップのプロンプトをトポロジカル順にレンダリングします。ただし、ドライランではLLMが呼び出されないため、**ステップ間の出力参照（`{{steps.<id>.output}}`）は利用できません**。後続ステップのプロンプトが `{{steps.<id>.output}}` を参照している場合、ドライランは `RenderError` で終了します。
-
-ドライランが有効なのは、各ステップのプロンプトが `{{input}}` や `--var` で提供された変数のみを参照している場合です：
+ドライランでは各ステップのプロンプトをトポロジカル順にレンダリングします。LLMが呼び出されないため、宣言済みステップの出力参照（`{{steps.<id>.output}}`）はプレースホルダ `[dry-run] <id>` に解決され、マルチステップのパイプラインもエラーなく確認できます。未宣言ステップへの参照（例: `{{steps.unknown.output}}`）は引き続き `RenderError` となり、終了コード1で終了します。
 
 ```bash
-# 有効: シングルステップ、またはステップ間参照のないマルチステップ
-yali run translate.yaml --input "Hello" --dry-run
+# マルチステップのパイプラインもプレースホルダ付きで描画される
+yali run pipeline.yaml --input "Hello" --dry-run
 
-# --var でステップ出力を模擬することも可能
+# --var でプレースホルダを上書きすることも可能
 yali run pipeline.yaml --input "Hello" \
   --var "steps.step_a.output=模擬出力テキスト" \
   --dry-run --format json
